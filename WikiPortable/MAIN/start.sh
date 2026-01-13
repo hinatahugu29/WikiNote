@@ -34,10 +34,6 @@ echo "🚀 Wikiサーバーを起動しています..."
 echo ""
 
 # OSに応じてブラウザを開く
-if [[ "$OSTYPE" == "darwin"* ]]; then
-    open http://localhost:3000
-elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
-    xdg-open http://localhost:3000 2>/dev/null
-fi
+
 
 node server.js

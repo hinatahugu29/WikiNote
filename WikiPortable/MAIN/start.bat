@@ -36,7 +36,7 @@ if not exist "node_modules" (
 REM サーバー起動
 echo 🚀 Wikiサーバーを起動しています...
 echo.
-start http://localhost:3000
+
 node server.js
 
 pause

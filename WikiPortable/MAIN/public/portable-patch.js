@@ -32,16 +32,7 @@
             if (saved) {
                 window.entries = JSON.parse(saved);
             } else {
-                // 初期データを設定（初回起動時）
-                window.entries = [{
-                    id: Date.now(),
-                    title: "Wikiへようこそ",
-                    category: "はじめに",
-                    tags: ["マニュアル"],
-                    content: "# Wikiへようこそ\n\nこれは初期記事です。「＋ 新規作成」ボタンから新しい記事を作成できます。\n\n## 使い方\n\n1. 記事を作成・編集\n2. 保存ボタンで自動保存\n3. バックアップ管理から復元可能",
-                    updated: new Date().toLocaleString('ja-JP')
-                }];
-                console.log('📝 初期データを作成しました');
+                window.entries = [];
             }
         }
 
@@ -55,13 +46,14 @@
 
     // 新しいsaveToStorage関数（サーバーに保存）
     window.saveToStorage = async function () {
-        // 安全性チェック: entriesが配列であることを確認
+        // 安全対策：window.entriesが配列でない場合は初期化
         if (!Array.isArray(window.entries)) {
-            console.error('❌ saveToStorage: entries が配列ではありません。保存を中止します。', window.entries);
-            return;
+            console.warn('⚠️ saveToStorage: entriesが配列ではありません。空配列で初期化します。', window.entries);
+            window.entries = [];
         }
 
         try {
+            console.log(`💾 saveToStorage: ${window.entries.length}件のデータを保存します...`);
             const response = await fetch(`${API_BASE}/data`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -69,20 +61,21 @@
             });
 
             if (response.ok) {
-                console.log('💾 サーバーに保存しました（自動バックアップ作成）');
+                console.log('✅ サーバーに保存しました（自動バックアップ作成）');
                 // localStorageにもバックアップ
                 localStorage.setItem(ORIGINAL_STORAGE_KEY, JSON.stringify(window.entries));
             } else {
-                throw new Error('保存に失敗');
+                throw new Error('サーバー応答エラー: ' + response.status);
             }
         } catch (error) {
             console.error('❌ サーバー保存エラー。localStorageのみに保存:', error);
             localStorage.setItem(ORIGINAL_STORAGE_KEY, JSON.stringify(window.entries));
-            alert('サーバーへの保存に失敗しました。オフラインモードで動作しています。');
+            alert('サーバーへの保存に失敗しました。オフラインモードで動作しています。\nエラー: ' + error.message);
         }
 
         if (window.updateStorageInfo) window.updateStorageInfo();
     };
+
 
     // バックアップ管理UIの追加
     window.showBackupManager = async function () {
@@ -93,8 +86,7 @@
             const backups = await response.json();
 
             if (backups.length === 0) {
-                alert('バックアップはまだありません。');
-                return;
+                // バックアップがない場合もモーダルは出す（手動作成用）
             }
 
             // バックアップ一覧をモーダルで表示
@@ -123,26 +115,24 @@
                 color: #333;
             `;
 
-            let html = '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">';
-            html += '<h2 style="margin:0;">📦 バックアップ管理</h2>';
-            html += '<button onclick="createManualBackup()" style="background:#2c3e50; color:white; border:none; padding:8px 15px; border-radius:5px; cursor:pointer; font-size:14px; display:flex; align-items:center; gap:5px;">📸 今すぐバックアップ</button>';
-            html += '</div>';
-
+            let html = `
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+                    <h2 style="margin:0;">📦 バックアップ管理</h2>
+                    <button onclick="createManualBackup()" style="background:#2ecc71; color:white; border:none; padding:8px 15px; border-radius:5px; cursor:pointer;">
+                        ➕ 手動でバックアップ作成
+                    </button>
+                </div>
+            `;
             html += '<p style="color:#666; margin-bottom:20px;">バックアップを選択して復元または追加できます</p>';
             html += '<div style="display:flex; flex-direction:column; gap:10px;">';
 
             backups.forEach((backup, i) => {
                 const sizeKB = (backup.size / 1024).toFixed(2);
-                const isManual = backup.filename.startsWith('manual_');
-                const label = isManual ? '<span style="background:#34495e; color:white; padding:2px 6px; border-radius:4px; font-size:10px; margin-left:5px;">手動</span>' : '';
-
                 html += `
                     <div style="border:1px solid #ddd; padding:15px; border-radius:8px; display:flex; justify-content:space-between; align-items:center;">
                         <div>
-                            <div style="font-weight:600; margin-bottom:5px; display:flex; align-items:center;">
-                                ${backup.createdLocal} ${label}
-                            </div>
-                            <div style="font-size:12px; color:#666;">${sizeKB} KB</div>
+                            <div style="font-weight:600; margin-bottom:5px;">${backup.createdLocal}</div>
+                            <div style="font-size:12px; color:#666;">📝 ${backup.count}記事 / ${sizeKB} KB</div>
                         </div>
                         <div style="display:flex; gap:8px;">
                             <button onclick="mergeBackup('${backup.filename}')" 
@@ -168,13 +158,33 @@
             html += '<button onclick="this.closest(\'.backup-modal\').remove()" style="margin-top:20px; background:#95a5a6; color:white; border:none; padding:10px 20px; border-radius:5px; cursor:pointer; width:100%;">閉じる</button>';
 
             content.innerHTML = html;
-            modal.appendChild(content);
+            modal.appendChild(content); // コンテンツを追加
             modal.className = 'backup-modal';
+            modal.onclick = (e) => {
+                if (e.target === modal) modal.remove();
+            };
+
             document.body.appendChild(modal);
 
         } catch (error) {
             console.error('バックアップ管理エラー:', error);
             alert('バックアップ一覧の取得に失敗しました');
+        }
+    };
+
+    // 手動バックアップ作成
+    window.createManualBackup = async function () {
+        try {
+            const response = await fetch(`${API_BASE}/backups/manual`, { method: 'POST' });
+            if (!response.ok) throw new Error('作成に失敗');
+
+            // リストを更新するためにモーダルを閉じて再表示
+            document.querySelector('.backup-modal')?.remove();
+            showBackupManager();
+
+        } catch (error) {
+            console.error('作成エラー:', error);
+            alert('バックアップ作成に失敗しました');
         }
     };
 
@@ -194,8 +204,8 @@
             const data = await response.json();
             window.entries = data;
 
-            // 即座にサーバーに保存（復元後の状態を確定）
-            await window.saveToStorage();
+            // localStorageも更新（サーバーと同期）
+            localStorage.setItem(ORIGINAL_STORAGE_KEY, JSON.stringify(window.entries));
 
             // UIを更新
             if (window.renderWiki) window.renderWiki();
@@ -244,10 +254,11 @@
         }
     };
 
-
     // バックアップ削除
     window.deleteBackup = async function (filename) {
-        if (!confirm('本当に削除しますか？')) return;
+        if (!confirm(`バックアップ「${filename}」を削除しますか？`)) {
+            return;
+        }
 
         try {
             const response = await fetch(`${API_BASE}/backups/${filename}`, {
@@ -256,37 +267,13 @@
 
             if (!response.ok) throw new Error('削除に失敗');
 
-            // モーダルを閉じて再表示（リスト更新）
-            const modal = document.querySelector('.backup-modal');
-            if (modal) modal.remove();
-            showBackupManager();
+            // バックアップマネージャーを再表示
+            document.querySelector('.backup-modal')?.remove();
+            window.showBackupManager();
 
         } catch (error) {
             console.error('削除エラー:', error);
             alert('削除に失敗しました');
-        }
-    };
-
-    // 手動バックアップ作成
-    window.createManualBackup = async function () {
-        try {
-            const response = await fetch(`${API_BASE}/backups`, {
-                method: 'POST'
-            });
-
-            if (!response.ok) throw new Error('作成に失敗');
-
-            // モーダルを閉じて再表示（リスト更新）
-            const modal = document.querySelector('.backup-modal');
-            if (modal) modal.remove();
-            showBackupManager();
-
-            // 完了メッセージ（邪魔にならないようにToast風でもいいが、とりあえずalertなしで更新だけでわかるか、軽く通知）
-            // alert('バックアップを作成しました'); // うざいのでリスト更新だけで十分かも
-
-        } catch (error) {
-            console.error('手動バックアップエラー:', error);
-            alert('バックアップ作成に失敗しました');
         }
     };
 
@@ -297,7 +284,8 @@
             span => span.textContent.includes('💾 バックアップ保存')
         );
         if (oldBackupBtn) {
-            oldBackupBtn.style.display = 'none';
+            oldBackupBtn.textContent = '💾 JSONエクスポート';
+            oldBackupBtn.onclick = originalExportData; // 元の関数を使用
         }
 
         // 既存の「復元」ボタンを「バックアップ管理」に変更
@@ -329,4 +317,9 @@
     console.log('   - サーバーベースストレージ');
     console.log('   - 自動バックアップ機能');
     console.log('   - バックアップ管理UI');
+
+    // 初期化を再実行（サーバーからデータをロードして表示）
+    setTimeout(() => {
+        window.init();
+    }, 100);
 })();

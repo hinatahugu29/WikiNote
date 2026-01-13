@@ -25,14 +25,6 @@ if (!fs.existsSync(BACKUP_DIR)) {
 const DATA_FILE = path.join(DATA_DIR, 'wiki_data.json');
 const MAX_BACKUPS = 30; // 最大保持バックアップ数
 
-// タイムスタンプ取得ヘルパー
-function getTimestamp() {
-    return new Date().toISOString()
-        .replace(/[-:]/g, '')
-        .replace('T', '_')
-        .split('.')[0];
-}
-
 // 初期データの作成
 function initializeData() {
     if (!fs.existsSync(DATA_FILE)) {
@@ -102,24 +94,32 @@ app.post('/api/data', (req, res) => {
     try {
         const data = req.body;
 
-        // 安全性チェック: 配列であることを確認
+        // データ検証（空のデータの誤保存防止）
         if (!Array.isArray(data)) {
-            console.error('❌ 保存拒否: 受け取ったデータが配列ではありません:', typeof data);
-            return res.status(400).json({ error: '無効なデータ形式です。配列が必要です。' });
+            return res.status(400).json({ error: 'データ形式が不正です' });
         }
 
-        const newDataStr = JSON.stringify(data, null, 2);
+        // 現在のデータを読み込んで比較
+        let currentData = [];
+        if (fs.existsSync(DATA_FILE)) {
+            try {
+                currentData = JSON.parse(fs.readFileSync(DATA_FILE, 'utf-8'));
+            } catch (e) {
+                console.warn('既存データの読み込み失敗:', e);
+            }
+        }
+
+        // 既存データがあるのに、空のデータを保存しようとした場合の警告
+        if (currentData.length > 0 && data.length === 0) {
+            console.warn('⚠️ 警告: 既存のデータを空のデータで上書きしようとしています');
+        }
 
         // 現在のデータをバックアップ
-        if (fs.existsSync(DATA_FILE)) {
-            const currentDataStr = fs.readFileSync(DATA_FILE, 'utf-8');
-
-            // 変更がない場合はバックアップせずに終了
-            if (currentDataStr === newDataStr) {
-                return res.json({ success: true, message: '変更なし' });
-            }
-
-            const timestamp = getTimestamp();
+        if (fs.existsSync(DATA_FILE) && currentData.length > 0) {
+            const timestamp = new Date().toISOString()
+                .replace(/[-:]/g, '')
+                .replace('T', '_')
+                .split('.')[0];
             const backupFile = path.join(BACKUP_DIR, `auto_${timestamp}.json`);
             fs.copyFileSync(DATA_FILE, backupFile);
             console.log(`📦 バックアップ作成: ${backupFile}`);
@@ -129,8 +129,8 @@ app.post('/api/data', (req, res) => {
         }
 
         // 新しいデータを保存
-        fs.writeFileSync(DATA_FILE, newDataStr, 'utf-8');
-        console.log('💾 データを保存しました');
+        fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2), 'utf-8');
+        console.log(`💾 データを保存しました (${data.length}件)`);
 
         res.json({ success: true, message: 'データを保存しました' });
     } catch (error) {
@@ -147,9 +147,21 @@ app.get('/api/backups', (req, res) => {
             .map(file => {
                 const filepath = path.join(BACKUP_DIR, file);
                 const stats = fs.statSync(filepath);
+
+                // 記事数をカウント（中身を少し読んで確認）
+                let count = 0;
+                try {
+                    const content = fs.readFileSync(filepath, 'utf-8');
+                    const json = JSON.parse(content);
+                    count = Array.isArray(json) ? json.length : 0;
+                } catch (e) {
+                    count = '?';
+                }
+
                 return {
                     filename: file,
                     size: stats.size,
+                    count: count,
                     created: stats.mtime.toISOString(),
                     createdLocal: stats.mtime.toLocaleString('ja-JP')
                 };
@@ -163,6 +175,32 @@ app.get('/api/backups', (req, res) => {
     }
 });
 
+// 手動バックアップ作成API
+app.post('/api/backups/manual', (req, res) => {
+    try {
+        if (fs.existsSync(DATA_FILE)) {
+            const timestamp = new Date().toISOString()
+                .replace(/[-:]/g, '')
+                .replace('T', '_')
+                .split('.')[0];
+            const backupFile = path.join(BACKUP_DIR, `manual_${timestamp}.json`);
+            fs.copyFileSync(DATA_FILE, backupFile);
+            console.log(`📦 手動バックアップ作成: ${backupFile}`);
+
+            // 古いバックアップを削除
+            cleanupOldBackups();
+
+            res.json({ success: true, message: '手動バックアップを作成しました' });
+        } else {
+            res.status(404).json({ error: 'データファイルが存在しません' });
+        }
+    } catch (error) {
+        console.error('手動バックアップ作成エラー:', error);
+        res.status(500).json({ error: 'バックアップ作成に失敗しました' });
+    }
+});
+
+// バックアップから復元API
 // バックアップから復元API
 app.post('/api/restore/:filename', (req, res) => {
     try {
@@ -173,41 +211,29 @@ app.post('/api/restore/:filename', (req, res) => {
             return res.status(404).json({ error: 'バックアップファイルが見つかりません' });
         }
 
-        // バックアップの内容を読み込み
-        const backupContent = fs.readFileSync(backupFile, 'utf-8');
-        const data = JSON.parse(backupContent);
+        // バックアップデータを読み込み確認
+        const backupDataRaw = fs.readFileSync(backupFile, 'utf-8');
+        const backupData = JSON.parse(backupDataRaw); // JSON検証
 
-        // メインデータファイルを直接上書き（即座に反映）
-        fs.writeFileSync(DATA_FILE, backupContent, 'utf-8');
-        console.log(`🔄 バックアップから復元: ${filename}`);
+        // 復元前の安全対策：現在の状態も「復元前バックアップ」として保存
+        if (fs.existsSync(DATA_FILE)) {
+            const timestamp = new Date().toISOString()
+                .replace(/[-:]/g, '')
+                .replace('T', '_')
+                .split('.')[0];
+            const safetyBackup = path.join(BACKUP_DIR, `restore_safety_${timestamp}.json`);
+            fs.copyFileSync(DATA_FILE, safetyBackup);
+            console.log(`🛡️ 復元前の安全バックアップを作成: ${safetyBackup}`);
+        }
 
-        res.json(data);
+        // 復元実行（ファイルを上書き）
+        fs.writeFileSync(DATA_FILE, backupDataRaw, 'utf-8');
+        console.log(`🔄 バックアップから復元しました: ${filename}`);
+
+        res.json(backupData);
     } catch (error) {
         console.error('復元エラー:', error);
         res.status(500).json({ error: '復元に失敗しました' });
-    }
-});
-
-// 手動バックアップ作成API
-app.post('/api/backups', (req, res) => {
-    try {
-        if (!fs.existsSync(DATA_FILE)) {
-            return res.status(404).json({ error: 'データファイルが存在しません' });
-        }
-
-        const timestamp = getTimestamp();
-        const backupFile = path.join(BACKUP_DIR, `manual_${timestamp}.json`);
-
-        fs.copyFileSync(DATA_FILE, backupFile);
-
-        // ローテーション管理
-        cleanupOldBackups();
-
-        console.log(`📸 手動バックアップ作成: ${backupFile}`);
-        res.json({ success: true, filename: path.basename(backupFile) });
-    } catch (error) {
-        console.error('手動バックアップエラー:', error);
-        res.status(500).json({ error: 'バックアップ作成に失敗しました' });
     }
 });
 
@@ -232,7 +258,6 @@ app.post('/api/merge/:filename', (req, res) => {
 
         // 既存のIDを取得
         const existingIds = new Set(currentData.map(item => item.id));
-        const existingTitles = new Set(currentData.map(item => item.title));
 
         // マージ処理（ID衝突を解決）
         const mergedData = [...currentData];
@@ -249,20 +274,17 @@ app.post('/api/merge/:filename', (req, res) => {
                 existingIds.add(newId);
             }
 
-            // タイトルの重複チェック
-            if (existingTitles.has(item.title)) {
+            // タイトルの重複チェック（オプション）
+            const titleExists = currentData.some(existing => existing.title === item.title);
+            if (titleExists) {
                 item.title = `${item.title} (インポート)`;
             }
-            existingTitles.add(item.title);
 
             mergedData.push(item);
             addedCount++;
         });
 
-        // マージ結果を直接保存（即座に反映）
-        fs.writeFileSync(DATA_FILE, JSON.stringify(mergedData, null, 2), 'utf-8');
         console.log(`📦 マージ完了: ${addedCount}件の記事を追加`);
-
         res.json({
             success: true,
             merged: mergedData,

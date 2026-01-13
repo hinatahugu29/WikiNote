@@ -1678,9 +1678,99 @@
         <div id="graphContainer"></div>
     </div>
 
+
+    <!-- Add Turndown Service for HTML->Markdown -->
+    <script src="https://unpkg.com/turndown/dist/turndown.js"></script>
+
     <script>
-        let entries = [];
+        window.entries = [];
         let editingId = null;
+
+        // --- Bidirectional Editing & Smart Paste ---
+        let turndownService;
+        let isUpdatingFromPreview = false;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            // Initialize Turndown
+            if (typeof TurndownService !== 'undefined') {
+                turndownService = new TurndownService({
+                    headingStyle: 'atx',
+                    codeBlockStyle: 'fenced',
+                    emDelimiter: '*'
+                });
+                // Configure tables if needed (requires plugin, skipping for now as per "possible range")
+                // Basic table support might be missing in core Turndown but H1-># works.
+            }
+
+            const textarea = document.getElementById('wikiContent');
+            const preview = document.getElementById('previewContent');
+
+            // 1. Smart Paste (HTML -> Markdown)
+            textarea.addEventListener('paste', (e) => {
+                const html = e.clipboardData.getData('text/html');
+                if (html && turndownService) {
+                    e.preventDefault();
+                    const markdown = turndownService.turndown(html);
+                    // Instert at cursor
+                    const start = textarea.selectionStart;
+                    const end = textarea.selectionEnd;
+                    const text = textarea.value;
+                    const newText = text.substring(0, start) + markdown + text.substring(end);
+                    textarea.value = newText;
+                    // Restore cursor
+                    textarea.selectionStart = textarea.selectionEnd = start + markdown.length;
+                    updatePreview(); // Update preview immediately
+                }
+            });
+
+            // 2. Bidirectional: Preview -> Markdown (Experimental)
+            // Enable editing in preview
+            preview.contentEditable = true;
+            preview.style.outline = 'none'; // Visual cleanup
+
+            // Debounce function to avoid heavy processing
+            const debounce = (func, wait) => {
+                let timeout;
+                return function (...args) {
+                    clearTimeout(timeout);
+                    timeout = setTimeout(() => func.apply(this, args), wait);
+                };
+            };
+
+            const syncToMarkdown = debounce(() => {
+                if (!turndownService) return;
+                isUpdatingFromPreview = true;
+                const html = preview.innerHTML;
+                const markdown = turndownService.turndown(html);
+                textarea.value = markdown;
+                isUpdatingFromPreview = false;
+                // Do NOT call updatePreview() here to avoid loop and cursor loss
+            }, 800);
+
+            preview.addEventListener('input', () => {
+                // Creating a visual indicator that we are in "Reverse Sync" mode could be nice
+                syncToMarkdown();
+            });
+
+            // FIX: Allow opening links in contentEditable mode
+            preview.addEventListener('click', (e) => {
+                if (e.target.tagName === 'A' && e.target.href) {
+                    // Check if it is an internal wiki link (different handling)
+                    if (e.target.classList.contains('wiki-link-internal')) return;
+
+                    // For external links:
+                    // If Ctrl (or Cmd) is pressed, or if we decide to allow direct click (might annoy editing)
+                    // Let's allow Ctrl+Click to open, otherwise it just places cursor.
+                    if (e.ctrlKey || e.metaKey) {
+                        window.open(e.target.href, '_blank');
+                    } else {
+                        // Optional: Show tooltip "Ctrl+Click to open"?
+                        console.log("Ctrl+Click to open link in edit mode");
+                    }
+                }
+            });
+        });
+        // ---------------------------------------------
 
         const STORAGE_KEY = 'personal_wiki_data';
         const GRAPH_SETTINGS_KEY = 'wiki_graph_settings';
@@ -1953,7 +2043,10 @@
                 <h3>${entry.title}</h3>
                 <div class="tags">${entry.tags.map(t => `<span class="tag">${t}</span>`).join('')}</div>
                 <div class="preview">${previewText}</div>
-                <div class="footer"><span>最終更新</span><span>${entry.updated}</span></div>
+                <div class="footer">
+                    <span>最終更新 ${entry.updated}</span>
+                    <button class="btn-delete-card" onclick="event.stopPropagation(); deleteEntryById(${entry.id})" title="削除">🗑️</button>
+                </div>
             `;
             return card;
         }
@@ -2028,11 +2121,6 @@
                 setViewMode('split');
             }
             document.getElementById('wikiModal').classList.add('active');
-
-            // Reset Scroll Position
-            document.getElementById('wikiContent').scrollTop = 0;
-            document.getElementById('previewContent').scrollTop = 0;
-
             renderSidebar();
             updatePreview();
         }
@@ -2092,7 +2180,20 @@
                 entries = entries.filter(e => e.id !== editingId);
                 saveToStorage();
                 renderWiki();
+                renderSidebar();
                 closeModal();
+                alert('削除しました');
+            }
+        }
+
+        // Quick Delete from List/Tree
+        function deleteEntryById(id) {
+            const entry = entries.find(e => e.id === id);
+            if (entry && confirm(`「${entry.title}」を削除しますか？`)) {
+                entries = entries.filter(e => e.id !== id);
+                saveToStorage();
+                renderWiki();
+                renderSidebar();
             }
         }
 
@@ -2792,6 +2893,20 @@
                 };
                 item.appendChild(linkBtn);
 
+                // Delete Button
+                const deleteBtn = document.createElement('span');
+                deleteBtn.innerHTML = '🗑️';
+                deleteBtn.className = 'tree-file-action-btn';
+                deleteBtn.title = '削除';
+                deleteBtn.style.cssText = 'font-size: 12px; cursor: pointer; padding: 2px 4px; margin-right: 4px; opacity: 0.6;';
+                deleteBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    deleteEntryById(entry.id);
+                };
+                deleteBtn.onmouseenter = () => deleteBtn.style.opacity = '1';
+                deleteBtn.onmouseleave = () => deleteBtn.style.opacity = '0.6';
+                item.appendChild(deleteBtn);
+
                 // Content wrapper
                 const contentWrapper = document.createElement('div');
                 contentWrapper.style.flex = '1';
@@ -2905,7 +3020,7 @@
 
         init();
     </script>
-    <script src="portable-patch.js"></script>
+    <script src="portable-patch.js?v=2"></script>
 
 </body>
 
