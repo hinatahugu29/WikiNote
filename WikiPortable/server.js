@@ -167,8 +167,15 @@ app.post('/api/restore/:filename', (req, res) => {
             return res.status(404).json({ error: 'バックアップファイルが見つかりません' });
         }
 
-        const data = fs.readFileSync(backupFile, 'utf-8');
-        res.json(JSON.parse(data));
+        // バックアップの内容を読み込み
+        const backupContent = fs.readFileSync(backupFile, 'utf-8');
+        const data = JSON.parse(backupContent);
+
+        // メインデータファイルを直接上書き（即座に反映）
+        fs.writeFileSync(DATA_FILE, backupContent, 'utf-8');
+        console.log(`🔄 バックアップから復元: ${filename}`);
+
+        res.json(data);
     } catch (error) {
         console.error('復元エラー:', error);
         res.status(500).json({ error: '復元に失敗しました' });
