@@ -2028,6 +2028,11 @@
                 setViewMode('split');
             }
             document.getElementById('wikiModal').classList.add('active');
+
+            // Reset Scroll Position
+            document.getElementById('wikiContent').scrollTop = 0;
+            document.getElementById('previewContent').scrollTop = 0;
+
             renderSidebar();
             updatePreview();
         }
