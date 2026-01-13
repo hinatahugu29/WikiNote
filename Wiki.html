@@ -1697,6 +1697,20 @@
                     codeBlockStyle: 'fenced',
                     emDelimiter: '*'
                 });
+
+                // Rule: Remove permalinks (anchors with 'headerlink' class or specific text)
+                turndownService.addRule('remove-permalinks', {
+                    filter: function (node, options) {
+                        return (
+                            (node.nodeName === 'A' && node.classList.contains('headerlink')) ||
+                            (node.nodeName === 'A' && (node.textContent === '¶' || node.textContent === '#'))
+                        );
+                    },
+                    replacement: function (content) {
+                        return '';
+                    }
+                });
+
             }
 
             const textarea = document.getElementById('wikiContent');
