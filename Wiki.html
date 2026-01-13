@@ -1678,9 +1678,87 @@
         <div id="graphContainer"></div>
     </div>
 
+    <!-- Add Turndown Service for HTML->Markdown -->
+    <script src="https://unpkg.com/turndown/dist/turndown.js"></script>
+
     <script>
         let entries = [];
         let editingId = null;
+
+        // --- Bidirectional Editing & Smart Paste ---
+        let turndownService;
+        let isUpdatingFromPreview = false;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            // Initialize Turndown
+            if (typeof TurndownService !== 'undefined') {
+                turndownService = new TurndownService({
+                    headingStyle: 'atx',
+                    codeBlockStyle: 'fenced',
+                    emDelimiter: '*'
+                });
+            }
+
+            const textarea = document.getElementById('wikiContent');
+            const preview = document.getElementById('previewContent');
+
+            // 1. Smart Paste (HTML -> Markdown)
+            textarea.addEventListener('paste', (e) => {
+                const html = e.clipboardData.getData('text/html');
+                if (html && turndownService) {
+                    e.preventDefault();
+                    const markdown = turndownService.turndown(html);
+                    // Instert at cursor
+                    const start = textarea.selectionStart;
+                    const end = textarea.selectionEnd;
+                    const text = textarea.value;
+                    const newText = text.substring(0, start) + markdown + text.substring(end);
+                    textarea.value = newText;
+                    // Restore cursor
+                    textarea.selectionStart = textarea.selectionEnd = start + markdown.length;
+                    updatePreview(); // Update preview immediately
+                }
+            });
+
+            // 2. Bidirectional: Preview -> Markdown (Experimental)
+            // Enable editing in preview
+            preview.contentEditable = true;
+            preview.style.outline = 'none'; // Visual cleanup
+
+            // Debounce function to avoid heavy processing
+            const debounce = (func, wait) => {
+                let timeout;
+                return function (...args) {
+                    clearTimeout(timeout);
+                    timeout = setTimeout(() => func.apply(this, args), wait);
+                };
+            };
+
+            const syncToMarkdown = debounce(() => {
+                if (!turndownService) return;
+                isUpdatingFromPreview = true;
+                const html = preview.innerHTML;
+                const markdown = turndownService.turndown(html);
+                textarea.value = markdown;
+                isUpdatingFromPreview = false;
+                // Do NOT call updatePreview() here to avoid loop and cursor loss
+            }, 800);
+
+            preview.addEventListener('input', () => {
+                syncToMarkdown();
+            });
+
+            // FIX: Allow opening links in contentEditable mode
+            preview.addEventListener('click', (e) => {
+                if (e.target.tagName === 'A' && e.target.href) {
+                    if (e.target.classList.contains('wiki-link-internal')) return;
+                    if (e.ctrlKey || e.metaKey) {
+                        window.open(e.target.href, '_blank');
+                    }
+                }
+            });
+        });
+
 
         const STORAGE_KEY = 'personal_wiki_data';
         const GRAPH_SETTINGS_KEY = 'wiki_graph_settings';
