@@ -25,6 +25,14 @@ if (!fs.existsSync(BACKUP_DIR)) {
 const DATA_FILE = path.join(DATA_DIR, 'wiki_data.json');
 const MAX_BACKUPS = 30; // 最大保持バックアップ数
 
+// タイムスタンプ取得ヘルパー
+function getTimestamp() {
+    return new Date().toISOString()
+        .replace(/[-:]/g, '')
+        .replace('T', '_')
+        .split('.')[0];
+}
+
 // 初期データの作成
 function initializeData() {
     if (!fs.existsSync(DATA_FILE)) {
@@ -93,13 +101,19 @@ app.get('/api/data', (req, res) => {
 app.post('/api/data', (req, res) => {
     try {
         const data = req.body;
+        const newDataStr = JSON.stringify(data, null, 2);
 
         // 現在のデータをバックアップ
         if (fs.existsSync(DATA_FILE)) {
-            const timestamp = new Date().toISOString()
-                .replace(/[-:]/g, '')
-                .replace('T', '_')
-                .split('.')[0];
+            const currentDataStr = fs.readFileSync(DATA_FILE, 'utf-8');
+
+            // 変更がない場合はバックアップせずに終了（タイムスタンプ更新だけするなら上書きするが、今回はスキップ）
+            if (currentDataStr === newDataStr) {
+                // console.log('変更がないため保存をスキップしました');
+                return res.json({ success: true, message: '変更なし' });
+            }
+
+            const timestamp = getTimestamp();
             const backupFile = path.join(BACKUP_DIR, `auto_${timestamp}.json`);
             fs.copyFileSync(DATA_FILE, backupFile);
             console.log(`📦 バックアップ作成: ${backupFile}`);
@@ -109,7 +123,7 @@ app.post('/api/data', (req, res) => {
         }
 
         // 新しいデータを保存
-        fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2), 'utf-8');
+        fs.writeFileSync(DATA_FILE, newDataStr, 'utf-8');
         console.log('💾 データを保存しました');
 
         res.json({ success: true, message: 'データを保存しました' });
@@ -173,8 +187,10 @@ app.post('/api/backups', (req, res) => {
 
         fs.copyFileSync(DATA_FILE, backupFile);
 
-        // ローテーション管理（手動も含むか、手動は別枠にするか。一旦含める）
-        manageBackups();
+        fs.copyFileSync(DATA_FILE, backupFile);
+
+        // ローテーション管理
+        cleanupOldBackups();
 
         console.log(`📸 手動バックアップ作成: ${backupFile}`);
         res.json({ success: true, filename: path.basename(backupFile) });
