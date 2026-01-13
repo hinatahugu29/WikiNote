@@ -1,0 +1,1249 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>スピードダイヤル</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #fff;
+            transition: background 0.5s ease;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 300;
+            margin-bottom: 20px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .search-box {
+            max-width: 700px;
+            margin: 0 auto 30px;
+            position: relative;
+            display: flex;
+            gap: 10px;
+        }
+
+        .search-engine-select {
+            padding: 10px;
+            border-radius: 50px;
+            border: none;
+            background: rgba(255, 255, 255, 0.95);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            cursor: pointer;
+            font-size: 20px;
+            width: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .search-box input {
+            flex: 1;
+            padding: 15px 100px 15px 25px;
+            border: none;
+            border-radius: 50px;
+            font-size: 16px;
+            background: rgba(255, 255, 255, 0.95);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .search-box button {
+            position: absolute;
+            right: 5px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: #667eea;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 50px;
+            color: white;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .add-buttons {
+            position: fixed;
+            bottom: 30px;
+            left: 30px;
+            display: flex;
+            gap: 15px;
+            z-index: 1000;
+        }
+
+        .fab-btn {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.9);
+            border: none;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+            cursor: pointer;
+            font-size: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s;
+        }
+
+        .fab-btn:hover {
+            transform: scale(1.1);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+        }
+
+        .fab-btn.secondary {
+            width: 50px;
+            height: 50px;
+            font-size: 20px;
+        }
+
+        .settings-panel {
+            position: fixed;
+            right: -400px;
+            top: 0;
+            width: 400px;
+            height: 100vh;
+            background: white;
+            box-shadow: -5px 0 20px rgba(0, 0, 0, 0.3);
+            z-index: 2000;
+            transition: right 0.3s ease;
+            overflow-y: auto;
+            color: #333;
+        }
+
+        .settings-panel.open {
+            right: 0;
+        }
+
+        .settings-header {
+            padding: 20px;
+            background: #667eea;
+            color: white;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .settings-header h2 {
+            margin: 0;
+            font-size: 1.5rem;
+        }
+
+        .close-settings {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 24px;
+            cursor: pointer;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .settings-content {
+            padding: 20px;
+        }
+
+        .settings-section {
+            margin-bottom: 30px;
+        }
+
+        .settings-section h3 {
+            margin-bottom: 15px;
+            color: #667eea;
+            font-size: 1.1rem;
+        }
+
+        .theme-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .theme-option {
+            height: 60px;
+            border-radius: 8px;
+            cursor: pointer;
+            border: 3px solid transparent;
+            transition: all 0.3s;
+            position: relative;
+        }
+
+        .theme-option:hover {
+            transform: scale(1.05);
+            border-color: #667eea;
+        }
+
+        .theme-option.active {
+            border-color: #667eea;
+            box-shadow: 0 0 10px rgba(102, 126, 234, 0.5);
+        }
+
+        .theme-option.active::after {
+            content: '✓';
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            background: #667eea;
+            color: white;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+        }
+
+        .color-inputs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .color-input-group {
+            flex: 1;
+        }
+
+        .color-input-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 12px;
+            color: #666;
+        }
+
+        .color-input-wrapper {
+            display: flex;
+            gap: 5px;
+            align-items: center;
+        }
+
+        .color-input-wrapper input[type="color"] {
+            width: 50px;
+            height: 40px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        .color-input-wrapper input[type="text"] {
+            flex: 1;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 12px;
+            font-family: monospace;
+        }
+
+        .apply-custom-btn {
+            width: 100%;
+            padding: 10px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 500;
+        }
+
+        .apply-custom-btn:hover {
+            background: #5568d3;
+        }
+
+        .settings-btn {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.9);
+            border: none;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+            cursor: pointer;
+            font-size: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s;
+            z-index: 1000;
+        }
+
+        .settings-btn:hover {
+            transform: scale(1.1);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+        }
+
+        .btn {
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            padding: 10px 20px;
+            border-radius: 8px;
+            color: white;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+            backdrop-filter: blur(10px);
+        }
+
+        .btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-2px);
+        }
+
+        .breadcrumb {
+            color: white;
+            margin-bottom: 20px;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .breadcrumb span {
+            cursor: pointer;
+            padding: 5px 10px;
+            border-radius: 5px;
+            transition: background 0.3s;
+        }
+
+        .breadcrumb span:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .dials-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 20px;
+            margin-bottom: 40px;
+        }
+
+        .dial-item {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            cursor: move;
+            transition: all 0.3s;
+            position: relative;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+            min-height: 180px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .dial-item:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        .dial-item.dragging {
+            opacity: 0.5;
+            transform: scale(0.9);
+        }
+
+        .dial-item.drag-over {
+            border: 3px dashed #667eea;
+            background: rgba(102, 126, 234, 0.2);
+        }
+
+        .dial-item.add-new {
+            border: 2px dashed rgba(102, 126, 234, 0.5);
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            font-size: 48px;
+            cursor: pointer;
+        }
+
+        .dial-item.folder {
+            background: linear-gradient(135deg, #ffd89b 0%, #19547b 100%);
+        }
+
+        .dial-item.folder .dial-title {
+            color: white;
+        }
+
+        .dial-favicon {
+            width: 64px;
+            height: 64px;
+            margin: 0 auto 10px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 32px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .dial-item.folder .dial-favicon {
+            background: none;
+            font-size: 48px;
+        }
+
+        .dial-favicon img {
+            width: 48px;
+            height: 48px;
+            object-fit: contain;
+        }
+
+        .dial-title {
+            color: #333;
+            font-weight: 500;
+            font-size: 14px;
+            margin-top: 10px;
+            word-break: break-word;
+        }
+
+        .dial-url {
+            color: #666;
+            font-size: 11px;
+            margin-top: 5px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            width: 100%;
+        }
+
+        .folder-count {
+            color: rgba(255, 255, 255, 0.9);
+            font-size: 12px;
+            margin-top: 5px;
+        }
+
+        .delete-btn {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            background: #ff4757;
+            color: white;
+            border: none;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            cursor: pointer;
+            opacity: 0;
+            transition: opacity 0.3s;
+            font-size: 16px;
+            line-height: 1;
+        }
+
+        .dial-item:hover .delete-btn {
+            opacity: 1;
+        }
+
+        .edit-btn {
+            position: absolute;
+            top: 5px;
+            right: 35px;
+            background: #5352ed;
+            color: white;
+            border: none;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            cursor: pointer;
+            opacity: 0;
+            transition: opacity 0.3s;
+            font-size: 12px;
+            line-height: 1;
+        }
+
+        .dial-item:hover .edit-btn {
+            opacity: 1;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            max-width: 500px;
+            width: 90%;
+            color: #333;
+        }
+
+        .modal-content h2 {
+            margin-bottom: 20px;
+            color: #667eea;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+
+        .modal-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 20px;
+        }
+
+        .modal-buttons button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 500;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-secondary {
+            background: #ddd;
+            color: #333;
+        }
+
+        .clock {
+            text-align: center;
+            font-size: 4rem;
+            font-weight: 200;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .date {
+            text-align: center;
+            font-size: 1.2rem;
+            opacity: 0.9;
+            margin-bottom: 30px;
+        }
+
+        @media (max-width: 768px) {
+            .dials-grid {
+                grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+                gap: 15px;
+            }
+
+            .clock {
+                font-size: 3rem;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <div class="clock" id="clock"></div>
+            <div class="date" id="date"></div>
+            <h1>スピードダイヤル</h1>
+            <div class="search-box">
+                <select id="searchEngine" class="search-engine-select">
+                    <option value="google" title="Google">🔍</option>
+                    <option value="youtube" title="YouTube">▶️</option>
+                    <option value="github" title="GitHub">💻</option>
+                    <option value="amazon" title="Amazon">📦</option>
+                    <option value="bing" title="Bing">Ｂ</option>
+                </select>
+                <input type="text" id="searchInput" placeholder="検索 または URLを入力...">
+                <button onclick="performSearch()">検索</button>
+            </div>
+        </header>
+
+        <div class="controls">
+            <div>
+                <button class="btn" onclick="openAddModal('dial')">➕ ダイヤル追加</button>
+                <button class="btn" onclick="openAddModal('folder')">📁 フォルダ作成</button>
+            </div>
+            <div>
+                <button class="btn" onclick="exportData()">📤 エクスポート</button>
+                <button class="btn" onclick="document.getElementById('importFile').click()">📥 インポート</button>
+                <input type="file" id="importFile" style="display:none" accept=".json" onchange="importData(event)">
+                <button class="btn" onclick="clearAll()">🗑️ 全削除</button>
+            </div>
+        </div>
+
+        <div class="breadcrumb" id="breadcrumb"></div>
+
+        <div class="dials-grid" id="dialsGrid"></div>
+    </div>
+
+    <div class="add-buttons">
+        <button class="fab-btn" onclick="openAddModal('dial')" title="ダイヤル追加">➕</button>
+        <button class="fab-btn secondary" onclick="openAddModal('folder')" title="フォルダ作成">📁</button>
+    </div>
+
+    <button class="settings-btn" onclick="toggleSettings()" title="設定">⚙️</button>
+
+    <div class="settings-panel" id="settingsPanel">
+        <div class="settings-header">
+            <h2>⚙️ 設定</h2>
+            <button class="close-settings" onclick="toggleSettings()">×</button>
+        </div>
+        <div class="settings-content">
+            <div class="settings-section">
+                <h3>🎨 背景テーマ</h3>
+                <div class="theme-grid">
+                    <div class="theme-option active" onclick="changeBackground('purple')"
+                        style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%)" title="パープル"></div>
+                    <div class="theme-option" onclick="changeBackground('ocean')"
+                        style="background: linear-gradient(135deg, #667db6 0%, #0082c8 100%)" title="オーシャン"></div>
+                    <div class="theme-option" onclick="changeBackground('sunset')"
+                        style="background: linear-gradient(135deg, #fa709a 0%, #fee140 100%)" title="サンセット"></div>
+                    <div class="theme-option" onclick="changeBackground('forest')"
+                        style="background: linear-gradient(135deg, #0ba360 0%, #3cba92 100%)" title="フォレスト"></div>
+                    <div class="theme-option" onclick="changeBackground('night')"
+                        style="background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%)" title="ナイト"></div>
+                    <div class="theme-option" onclick="changeBackground('cherry')"
+                        style="background: linear-gradient(135deg, #eb3349 0%, #f45c43 100%)" title="チェリー"></div>
+                    <div class="theme-option" onclick="setUnsplashBackground()"
+                        style="background: url('https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=100&q=20'); background-size: cover;"
+                        title="Unsplash (ランダム)"></div>
+                </div>
+            </div>
+
+            <div class="settings-section">
+                <h3>🎨 カスタム背景</h3>
+                <div class="color-inputs">
+                    <div class="color-input-group">
+                        <label>開始色</label>
+                        <div class="color-input-wrapper">
+                            <input type="color" id="colorStart" value="#667eea">
+                            <input type="text" id="colorStartHex" value="#667eea" maxlength="7">
+                        </div>
+                    </div>
+                    <div class="color-input-group">
+                        <label>終了色</label>
+                        <div class="color-input-wrapper">
+                            <input type="color" id="colorEnd" value="#764ba2">
+                            <input type="text" id="colorEndHex" value="#764ba2" maxlength="7">
+                        </div>
+                    </div>
+                </div>
+                <button class="apply-custom-btn" onclick="applyCustomBackground()">カスタム背景を適用</button>
+            </div>
+
+            <div class="settings-section">
+                <h3>💾 データ管理</h3>
+                <button class="apply-custom-btn" onclick="exportData()" style="margin-bottom: 10px;">📤 エクスポート</button>
+                <button class="apply-custom-btn" onclick="document.getElementById('importFile').click()"
+                    style="margin-bottom: 10px;">📥 インポート</button>
+                <button class="apply-custom-btn" onclick="clearAll()" style="background: #ff4757;">🗑️ 全削除</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="addModal">
+        <div class="modal-content">
+            <h2 id="modalTitle">新しいダイヤルを追加</h2>
+            <div class="form-group" id="typeGroup">
+                <label>種類</label>
+                <select id="dialType">
+                    <option value="dial">ダイヤル</option>
+                    <option value="folder">フォルダ</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>タイトル</label>
+                <input type="text" id="dialTitle" placeholder="例: Google">
+            </div>
+            <div class="form-group" id="urlGroup">
+                <label>URL</label>
+                <input type="text" id="dialUrl" placeholder="例: https://www.google.com または file:///C:/Users/...">
+            </div>
+            <div class="form-group">
+                <label>アイコン (絵文字または文字)</label>
+                <input type="text" id="dialIcon" placeholder="例: 🔍" maxlength="2">
+            </div>
+            <div class="modal-buttons">
+                <button class="btn-secondary" onclick="closeModal()">キャンセル</button>
+                <button class="btn-primary" onclick="saveDial()">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let dials = [];
+        let currentFolder = null;
+        let editingIndex = null;
+        let currentTheme = 'purple';
+
+        const themes = {
+            purple: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            ocean: 'linear-gradient(135deg, #667db6 0%, #0082c8 100%)',
+            sunset: 'linear-gradient(135deg, #fa709a 0%, #fee140 100%)',
+            forest: 'linear-gradient(135deg, #0ba360 0%, #3cba92 100%)',
+            night: 'linear-gradient(135deg, #2c3e50 0%, #34495e 100%)',
+            cherry: 'linear-gradient(135deg, #eb3349 0%, #f45c43 100%)'
+        };
+
+        const defaultDials = [
+            { type: 'dial', title: 'Google', url: 'https://www.google.com', icon: '🔍' },
+            { type: 'dial', title: 'YouTube', url: 'https://www.youtube.com', icon: '▶️' },
+            { type: 'dial', title: 'Twitter', url: 'https://twitter.com', icon: '🐦' },
+            { type: 'dial', title: 'GitHub', url: 'https://github.com', icon: '💻' },
+            { type: 'dial', title: 'Amazon', url: 'https://www.amazon.co.jp', icon: '📦' },
+            { type: 'dial', title: 'Yahoo! JAPAN', url: 'https://www.yahoo.co.jp', icon: 'Y!' },
+        ];
+
+        function init() {
+            loadDials();
+            loadTheme();
+            renderDials();
+            updateClock();
+            setInterval(updateClock, 1000);
+            setupSearchEnter();
+            updateBreadcrumb();
+            setupColorInputs();
+        }
+
+        function setupColorInputs() {
+            const colorStart = document.getElementById('colorStart');
+            const colorStartHex = document.getElementById('colorStartHex');
+            const colorEnd = document.getElementById('colorEnd');
+            const colorEndHex = document.getElementById('colorEndHex');
+
+            colorStart.addEventListener('input', (e) => {
+                colorStartHex.value = e.target.value;
+            });
+
+            colorStartHex.addEventListener('input', (e) => {
+                if (/^#[0-9A-F]{6}$/i.test(e.target.value)) {
+                    colorStart.value = e.target.value;
+                }
+            });
+
+            colorEnd.addEventListener('input', (e) => {
+                colorEndHex.value = e.target.value;
+            });
+
+            colorEndHex.addEventListener('input', (e) => {
+                if (/^#[0-9A-F]{6}$/i.test(e.target.value)) {
+                    colorEnd.value = e.target.value;
+                }
+            });
+        }
+
+        function toggleSettings() {
+            document.getElementById('settingsPanel').classList.toggle('open');
+        }
+
+        function updateClock() {
+            const now = new Date();
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            document.getElementById('clock').textContent = `${hours}:${minutes}`;
+
+            const options = { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' };
+            document.getElementById('date').textContent = now.toLocaleDateString('ja-JP', options);
+        }
+
+        function loadDials() {
+            const saved = localStorage.getItem('speedDials');
+            if (saved) {
+                dials = JSON.parse(saved);
+            } else {
+                dials = [...defaultDials];
+                saveDials();
+            }
+        }
+
+        function saveDials() {
+            localStorage.setItem('speedDials', JSON.stringify(dials));
+        }
+
+        function loadTheme() {
+            const saved = localStorage.getItem('speedDialTheme');
+            if (saved) {
+                if (themes[saved]) {
+                    currentTheme = saved;
+                    document.body.style.background = themes[saved];
+                } else {
+                    // カスタム背景
+                    document.body.style.background = saved;
+                }
+                updateActiveTheme();
+            }
+        }
+
+        function changeBackground(theme) {
+            if (themes[theme]) {
+                currentTheme = theme;
+                document.body.style.background = themes[theme];
+                localStorage.setItem('speedDialTheme', theme);
+                updateActiveTheme();
+            }
+        }
+
+        function applyCustomBackground() {
+            const color1 = document.getElementById('colorStart').value;
+            const color2 = document.getElementById('colorEnd').value;
+            const customGradient = `linear-gradient(135deg, ${color1} 0%, ${color2} 100%)`;
+
+            currentTheme = 'custom';
+            document.body.style.background = customGradient;
+            localStorage.setItem('speedDialTheme', customGradient);
+            updateActiveTheme();
+        }
+
+        function updateActiveTheme() {
+            document.querySelectorAll('.theme-option').forEach(el => el.classList.remove('active'));
+            const options = document.querySelectorAll('.theme-option');
+            const themeNames = Object.keys(themes);
+            let index = themeNames.indexOf(currentTheme);
+
+            if (currentTheme === 'unsplash') {
+                index = 6; // Unsplash is the 7th option
+            }
+
+            if (index >= 0 && options[index]) {
+                options[index].classList.add('active');
+            }
+        }
+
+        function setUnsplashBackground() {
+            const randomId = Math.floor(Math.random() * 1000);
+            const url = `https://images.unsplash.com/photo-${1506744038136 + randomId}?auto=format&fit=crop&w=1920&q=80`;
+            // Simplified random unsplash
+            const unsplashUrl = `https://source.unsplash.com/random/1920x1080?nature,landscape`;
+
+            // source.unsplash.com is deprecated, using a better way
+            const topics = ['nature', 'landscape', 'water', 'mountain'];
+            const topic = topics[Math.floor(Math.random() * topics.length)];
+            const timestamp = new Date().getTime();
+            const finalUrl = `https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1920&q=80`; // Fallback placeholder
+
+            // Using a reliable random image service
+            const reliableUrl = `https://picsum.photos/1920/1080?random=${timestamp}`;
+
+            document.body.style.backgroundImage = `url('${reliableUrl}')`;
+            document.body.style.backgroundSize = 'cover';
+            document.body.style.backgroundPosition = 'center';
+            document.body.style.backgroundAttachment = 'fixed';
+
+            currentTheme = 'unsplash';
+            localStorage.setItem('speedDialTheme', 'unsplash');
+            localStorage.setItem('speedDialUnsplashUrl', reliableUrl);
+            updateActiveTheme();
+        }
+
+        // Update loadTheme to handle unsplash
+        const originalLoadTheme = loadTheme;
+        loadTheme = function () {
+            const saved = localStorage.getItem('speedDialTheme');
+            if (saved === 'unsplash') {
+                const savedUrl = localStorage.getItem('speedDialUnsplashUrl') || `https://picsum.photos/1920/1080`;
+                document.body.style.backgroundImage = `url('${savedUrl}')`;
+                document.body.style.backgroundSize = 'cover';
+                document.body.style.backgroundPosition = 'center';
+                document.body.style.backgroundAttachment = 'fixed';
+                currentTheme = 'unsplash';
+                updateActiveTheme();
+            } else {
+                originalLoadTheme();
+            }
+        };
+
+        function getCurrentDials() {
+            if (!currentFolder) return dials;
+            const folder = findItemByPath(currentFolder);
+            return folder ? folder.items : [];
+        }
+
+        function findItemByPath(path) {
+            const parts = path.split('/').filter(p => p);
+            let current = { items: dials };
+
+            for (const part of parts) {
+                const index = parseInt(part);
+                if (current.items && current.items[index]) {
+                    current = current.items[index];
+                } else {
+                    return null;
+                }
+            }
+            return current;
+        }
+
+        function updateBreadcrumb() {
+            const breadcrumb = document.getElementById('breadcrumb');
+            if (!currentFolder) {
+                breadcrumb.innerHTML = '<span onclick="navigateToFolder(null)">🏠 ホーム</span>';
+            } else {
+                const parts = currentFolder.split('/').filter(p => p);
+                let html = '<span onclick="navigateToFolder(null)">🏠 ホーム</span>';
+                let path = '';
+
+                parts.forEach((part, i) => {
+                    path += '/' + part;
+                    const folder = findItemByPath(path);
+                    if (folder) {
+                        const currentPath = path;
+                        html += ` → <span onclick="navigateToFolder('${currentPath}')">${folder.title}</span>`;
+                    }
+                });
+
+                breadcrumb.innerHTML = html;
+            }
+        }
+
+        function navigateToFolder(path) {
+            currentFolder = path;
+            updateBreadcrumb();
+            renderDials();
+        }
+
+        function renderDials() {
+            const grid = document.getElementById('dialsGrid');
+            grid.innerHTML = '';
+            const items = getCurrentDials();
+
+            items.forEach((item, index) => {
+                const dialItem = document.createElement('div');
+                dialItem.className = 'dial-item' + (item.type === 'folder' ? ' folder' : '');
+                dialItem.draggable = true;
+                dialItem.dataset.index = index;
+
+                dialItem.ondragstart = handleDragStart;
+                dialItem.ondragover = handleDragOver;
+                dialItem.ondrop = handleDrop;
+                dialItem.ondragend = handleDragEnd;
+                dialItem.ondragleave = handleDragLeave;
+
+                if (item.type === 'folder') {
+                    const count = item.items ? item.items.length : 0;
+                    dialItem.onclick = () => {
+                        const newPath = currentFolder ? `${currentFolder}/${index}` : `/${index}`;
+                        navigateToFolder(newPath);
+                    };
+                    dialItem.innerHTML = `
+                        <button class="edit-btn" onclick="event.stopPropagation(); editDial(${index})">✏️</button>
+                        <button class="delete-btn" onclick="event.stopPropagation(); deleteDial(${index})">×</button>
+                        <div class="dial-favicon">📁</div>
+                        <div class="dial-title">${item.title}</div>
+                        <div class="folder-count">${count} 項目</div>
+                    `;
+                } else {
+                    dialItem.onclick = () => window.open(item.url, '_blank');
+                    let iconHtml = `<div class="dial-favicon">${item.icon}</div>`;
+
+                    // Favicon fetching logic
+                    if (item.url && item.url.startsWith('http')) {
+                        const domain = new URL(item.url).hostname;
+                        const faviconUrl = `https://www.google.com/s2/favicons?sz=64&domain=${domain}`;
+                        iconHtml = `<div class="dial-favicon"><img src="${faviconUrl}" onerror="this.parentElement.innerHTML='${item.icon}'" alt=""></div>`;
+                    }
+
+                    dialItem.innerHTML = `
+                        <button class="edit-btn" onclick="event.stopPropagation(); editDial(${index})">✏️</button>
+                        <button class="delete-btn" onclick="event.stopPropagation(); deleteDial(${index})">×</button>
+                        ${iconHtml}
+                        <div class="dial-title">${item.title}</div>
+                        <div class="dial-url">${item.url}</div>
+                    `;
+                }
+
+                grid.appendChild(dialItem);
+            });
+        }
+
+        let draggedElement = null;
+        let draggedIndex = null;
+
+        function handleDragStart(e) {
+            draggedElement = e.target;
+            draggedIndex = parseInt(e.target.dataset.index);
+            e.target.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+        }
+
+        function handleDragOver(e) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+
+            if (e.target.closest('.dial-item') && e.target.closest('.dial-item') !== draggedElement) {
+                e.target.closest('.dial-item').classList.add('drag-over');
+            }
+        }
+
+        function handleDragLeave(e) {
+            if (e.target.closest('.dial-item')) {
+                e.target.closest('.dial-item').classList.remove('drag-over');
+            }
+        }
+
+        function handleDrop(e) {
+            e.preventDefault();
+            const dropTarget = e.target.closest('.dial-item');
+
+            if (dropTarget && dropTarget !== draggedElement) {
+                dropTarget.classList.remove('drag-over');
+                const dropIndex = parseInt(dropTarget.dataset.index);
+                const items = getCurrentDials();
+
+                // フォルダの上にドロップした場合
+                if (items[dropIndex].type === 'folder') {
+                    const draggedItem = items[draggedIndex];
+                    items.splice(draggedIndex, 1);
+
+                    if (!items[dropIndex > draggedIndex ? dropIndex - 1 : dropIndex].items) {
+                        items[dropIndex > draggedIndex ? dropIndex - 1 : dropIndex].items = [];
+                    }
+                    items[dropIndex > draggedIndex ? dropIndex - 1 : dropIndex].items.push(draggedItem);
+                } else {
+                    // 並び替え
+                    const draggedItem = items[draggedIndex];
+                    items.splice(draggedIndex, 1);
+                    const newIndex = draggedIndex < dropIndex ? dropIndex - 1 : dropIndex;
+                    items.splice(newIndex, 0, draggedItem);
+                }
+
+                saveDials();
+                renderDials();
+            }
+        }
+
+        function handleDragEnd(e) {
+            e.target.classList.remove('dragging');
+            document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+        }
+
+        function openAddModal(type) {
+            editingIndex = null;
+            document.getElementById('addModal').classList.add('active');
+            document.getElementById('modalTitle').textContent = type === 'folder' ? '新しいフォルダを作成' : '新しいダイヤルを追加';
+            document.getElementById('dialType').value = type;
+            document.getElementById('dialTitle').value = '';
+            document.getElementById('dialUrl').value = '';
+            document.getElementById('dialIcon').value = type === 'folder' ? '📁' : '';
+            document.getElementById('typeGroup').style.display = 'none';
+            document.getElementById('urlGroup').style.display = type === 'folder' ? 'none' : 'block';
+        }
+
+        function editDial(index) {
+            editingIndex = index;
+            const items = getCurrentDials();
+            const item = items[index];
+
+            document.getElementById('addModal').classList.add('active');
+            document.getElementById('modalTitle').textContent = '編集';
+            document.getElementById('dialType').value = item.type;
+            document.getElementById('dialTitle').value = item.title;
+            document.getElementById('dialUrl').value = item.url || '';
+            document.getElementById('dialIcon').value = item.icon;
+            document.getElementById('typeGroup').style.display = 'none';
+            document.getElementById('urlGroup').style.display = item.type === 'folder' ? 'none' : 'block';
+        }
+
+        function closeModal() {
+            document.getElementById('addModal').classList.remove('active');
+            editingIndex = null;
+        }
+
+        function saveDial() {
+            const type = document.getElementById('dialType').value;
+            const title = document.getElementById('dialTitle').value.trim();
+            let url = document.getElementById('dialUrl').value.trim();
+            const icon = document.getElementById('dialIcon').value.trim() || (type === 'folder' ? '📁' : '🌐');
+
+            if (!title) {
+                alert('タイトルは必須です');
+                return;
+            }
+
+            if (type === 'dial' && !url) {
+                alert('URLは必須です');
+                return;
+            }
+
+            if (type === 'dial') {
+                // Windowsパスの自動変換 (例: "C:\..." -> "file:///C:/...")
+                if (/^[a-zA-Z]:\\/.test(url) || url.startsWith('\\\\')) {
+                    url = 'file:///' + url.replace(/\\/g, '/');
+                }
+            }
+
+            const newItem = { type, title, icon };
+            if (type === 'dial') {
+                newItem.url = url;
+            } else {
+                newItem.items = [];
+            }
+
+            const items = getCurrentDials();
+
+            if (editingIndex !== null) {
+                items[editingIndex] = { ...items[editingIndex], ...newItem };
+            } else {
+                items.push(newItem);
+            }
+
+            saveDials();
+            renderDials();
+            closeModal();
+        }
+
+        function deleteDial(index) {
+            if (confirm('この項目を削除しますか？')) {
+                const items = getCurrentDials();
+                items.splice(index, 1);
+                saveDials();
+                renderDials();
+            }
+        }
+
+        function performSearch() {
+            const query = document.getElementById('searchInput').value.trim();
+            const engine = document.getElementById('searchEngine').value;
+            if (!query) return;
+
+            if (query.startsWith('http://') || query.startsWith('https://')) {
+                window.open(query, '_blank');
+            } else if (query.includes('.')) {
+                window.open('https://' + query, '_blank');
+            } else {
+                let searchUrl = '';
+                switch (engine) {
+                    case 'google':
+                        searchUrl = 'https://www.google.com/search?q=';
+                        break;
+                    case 'youtube':
+                        searchUrl = 'https://www.youtube.com/results?search_query=';
+                        break;
+                    case 'github':
+                        searchUrl = 'https://github.com/search?q=';
+                        break;
+                    case 'amazon':
+                        searchUrl = 'https://www.amazon.co.jp/s?k=';
+                        break;
+                    case 'bing':
+                        searchUrl = 'https://www.bing.com/search?q=';
+                        break;
+                    default:
+                        searchUrl = 'https://www.google.com/search?q=';
+                }
+                window.open(searchUrl + encodeURIComponent(query), '_blank');
+            }
+
+            document.getElementById('searchInput').value = '';
+        }
+
+        function setupSearchEnter() {
+            document.getElementById('searchInput').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') performSearch();
+            });
+        }
+
+        function exportData() {
+            const data = JSON.stringify(dials, null, 2);
+            const blob = new Blob([data], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'speed-dials-backup.json';
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function importData(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const imported = JSON.parse(e.target.result);
+                    if (Array.isArray(imported)) {
+                        dials = imported;
+                        currentFolder = null;
+                        saveDials();
+                        renderDials();
+                        updateBreadcrumb();
+                        alert('インポートが完了しました!');
+                    } else {
+                        alert('無効なファイル形式です');
+                    }
+                } catch (err) {
+                    alert('ファイルの読み込みに失敗しました');
+                }
+            };
+            reader.readAsText(file);
+            event.target.value = '';
+        }
+
+        function clearAll() {
+            if (confirm('すべてのダイヤルを削除してデフォルトに戻しますか?')) {
+                dials = [...defaultDials];
+                currentFolder = null;
+                saveDials();
+                renderDials();
+                updateBreadcrumb();
+            }
+        }
+
+        init();
+    </script>
+</body>
+
+</html>

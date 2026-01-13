@@ -1,0 +1,22 @@
+# 依存パッケージ
+node_modules/
+
+# データ（個人情報を含む可能性があるため）
+data/
+backups/
+
+# OS生成ファイル
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ログファイル
+*.log
+npm-debug.log*
+
+# エディタ設定
+.vscode/
+.idea/
+*.swp
+*.swo
+*~

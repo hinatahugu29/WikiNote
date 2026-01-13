@@ -1,0 +1,2911 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wiki Editor</title>
+    <!-- Libraries for Markdown, Syntax Highlighting, and Math -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <link rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-light.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.8/purify.min.js"></script>
+    <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+    <style>
+        :root {
+            --primary-bg: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            --card-bg: rgba(255, 255, 255, 0.95);
+            --text-main: #2c3e50;
+            --accent: #3498db;
+            --glass: rgba(255, 255, 255, 0.2);
+            --border-color: #e1e4e8;
+            --bg-body: #f6f8fa;
+        }
+
+        body.dark-mode {
+            --primary-bg: linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%);
+            --card-bg: #2d3436;
+            --text-main: #dfe6e9;
+            --glass: rgba(0, 0, 0, 0.6);
+            --border-color: #444;
+            --bg-body: #1e272e;
+        }
+
+        body.dark-mode .modal-content,
+        body.dark-mode .preview-area,
+        body.dark-mode .toolbar,
+        body.dark-mode .editor-main,
+        body.dark-mode .editor-main textarea,
+        body.dark-mode .editor-main input {
+            background-color: #1e272e;
+            color: #dfe6e9;
+            border-color: #444;
+        }
+
+        body.dark-mode .search-area input {
+            background: #2d3436;
+            color: #fff;
+        }
+
+        body.dark-mode .preview-content table tr,
+        body.dark-mode .preview-content table tr:nth-child(even),
+        body.dark-mode .modal-footer,
+        body.dark-mode .modal-header,
+        body.dark-mode .view-controls,
+        body.dark-mode .toc,
+        body.dark-mode .toc ul {
+            background: #2d3436;
+            border-color: #444;
+            color: #dfe6e9;
+        }
+
+        body.dark-mode .close-immersive,
+        body.dark-mode .action-icon-btn,
+        body.dark-mode .toolbar-btn,
+        body.dark-mode .view-btn.active {
+            background: #2d3436;
+            border-color: #555;
+            color: #dfe6e9;
+        }
+
+        body.dark-mode .preview-content code {
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+
+        /* Tag Cloud Styles */
+        .tag-cloud {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 8px;
+            margin-top: 15px;
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .tag-chip {
+            font-size: 11px;
+            background: rgba(255, 255, 255, 0.2);
+            padding: 4px 10px;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .tag-chip:hover {
+            background: rgba(255, 255, 255, 0.4);
+            transform: translateY(-1px);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+            background: var(--primary-bg);
+            background-attachment: fixed;
+            min-height: 100vh;
+            color: #fff;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 40px;
+            padding: 20px;
+            background: var(--glass);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 20px;
+            font-weight: 300;
+        }
+
+        .search-area {
+            display: flex;
+            gap: 10px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .search-area input {
+            flex: 1;
+            padding: 15px 25px;
+            border: none;
+            border-radius: 50px;
+            font-size: 16px;
+            background: white;
+            color: var(--text-main);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .btn {
+            padding: 8px 20px;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            font-size: 14px;
+        }
+
+        .btn-add {
+            background: #2ecc71;
+            color: white;
+            padding: 12px 25px;
+        }
+
+        .btn-add:hover {
+            background: #27ae60;
+            transform: scale(1.05);
+        }
+
+        .wiki-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 25px;
+            margin-top: 30px;
+        }
+
+        .wiki-card {
+            background: var(--card-bg);
+            border-radius: 15px;
+            padding: 20px;
+            color: var(--text-main);
+            position: relative;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+            border-left: 5px solid var(--accent);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .wiki-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.3);
+        }
+
+        .wiki-card h3 {
+            font-size: 1.2rem;
+            margin-bottom: 10px;
+            color: var(--accent);
+        }
+
+        .wiki-card .tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            margin-bottom: 15px;
+        }
+
+        .tag {
+            font-size: 10px;
+            background: #e1e8ed;
+            padding: 2px 8px;
+            border-radius: 10px;
+            color: #657786;
+        }
+
+        .wiki-card .preview {
+            font-size: 14px;
+            color: #555;
+            flex-grow: 1;
+            overflow: hidden;
+            display: -webkit-box;
+            -webkit-line-clamp: 3;
+            -webkit-box-orient: vertical;
+        }
+
+        .wiki-card .footer {
+            margin-top: 15px;
+            font-size: 11px;
+            color: #999;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(5px);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            width: 95%;
+            max-width: 1200px;
+            height: 90vh;
+            border-radius: 20px;
+            display: flex;
+            flex-direction: column;
+            color: var(--text-main);
+            overflow: hidden;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+        }
+
+        .modal-header {
+            padding: 15px 20px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #ddd;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        /* View Modes */
+        .modal-content.mode-editor .preview-area {
+            display: none;
+        }
+
+        /* Force full width in editor mode, overriding inline styles from resizer */
+        .modal-content.mode-editor .editor-main {
+            flex: 1 1 100% !important;
+            max-width: 100% !important;
+        }
+
+        .modal-content.mode-preview .editor-main {
+            display: none;
+        }
+
+        .modal-content.mode-preview .toolbar {
+            display: none;
+        }
+
+        .modal-content.mode-preview .modal-footer {
+            display: none;
+        }
+
+        .modal-content.mode-preview {
+            width: 100%;
+            height: 100vh;
+            border-radius: 0;
+            max-width: none;
+        }
+
+        .modal-content.maximized {
+            width: 100%;
+            height: 100vh;
+            border-radius: 0;
+            max-width: none;
+        }
+
+        .modal-content.mode-preview .modal-header {
+            display: none;
+        }
+
+        .modal-content.mode-split .editor-main,
+        .modal-content.mode-split .preview-area {
+            flex: 1;
+        }
+
+        /* TOC Control */
+        .toc {
+            display: none;
+            width: 200px;
+            padding: 0;
+            font-size: 13px;
+            background: transparent;
+            border: none;
+        }
+
+        .modal-content.mode-preview .toc {
+            display: block;
+            width: 250px;
+            position: sticky;
+            top: 20px;
+            align-self: flex-start;
+            max-height: calc(100vh - 50px);
+            overflow-y: auto;
+            z-index: 10;
+            padding-top: 40px;
+            flex-shrink: 0;
+            margin-right: 20px;
+        }
+
+        /* Hide TOC in wide mode to prevent overlap or clutter */
+        .modal-content.is-wide .toc {
+            display: none;
+        }
+
+        .toc h4 {
+            margin-bottom: 10px;
+            color: #999;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 600;
+        }
+
+        .toc ul {
+            list-style: none;
+            border-left: 2px solid #eee;
+        }
+
+        .toc li {
+            margin-bottom: 0;
+        }
+
+        .toc a {
+            color: #666;
+            text-decoration: none;
+            transition: all 0.2s;
+            display: block;
+            padding: 4px 0 4px 15px;
+            position: relative;
+        }
+
+        .toc a:hover {
+            color: var(--accent);
+            border-left: 2px solid var(--accent);
+            margin-left: -2px;
+            background: linear-gradient(90deg, rgba(52, 152, 219, 0.1), transparent);
+        }
+
+        .toc .toc-h2 {
+            padding-left: 0;
+        }
+
+        .toc .toc-h2 a {
+            padding-left: 25px;
+        }
+
+        /* Markdown Styles */
+        blockquote {
+            border-left: 4px solid #dfe2e5;
+            color: #6a737d;
+            padding-left: 16px;
+            margin: 16px 0;
+        }
+
+        hr {
+            height: 0.25em;
+            padding: 0;
+            margin: 24px 0;
+            background-color: #e1e4e8;
+            border: 0;
+        }
+
+        del {
+            color: #999;
+        }
+
+        .preview-content a {
+            color: var(--accent);
+            text-decoration: none;
+        }
+
+        .preview-content a:hover {
+            text-decoration: underline;
+        }
+
+        .preview-content img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            margin: 10px 0;
+        }
+
+        .preview-content img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            margin: 10px 0;
+            cursor: zoom-in;
+            /* Indicate clickable */
+        }
+
+        .wiki-link-internal {
+            color: var(--accent);
+            cursor: pointer;
+            border-bottom: 1px dotted var(--accent);
+            transition: all 0.2s;
+        }
+
+        /* Lightbox */
+        .lightbox {
+            display: none;
+            position: fixed;
+            z-index: 2000;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.9);
+            justify-content: center;
+            align-items: center;
+            cursor: zoom-out;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .lightbox.active {
+            display: flex;
+            opacity: 1;
+        }
+
+        .lightbox img {
+            max-width: 90%;
+            max-height: 90%;
+            border-radius: 4px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+            transition: transform 0.3s;
+        }
+
+        .lightbox.active img {
+            transform: scale(1);
+        }
+
+        /* TOC Active State */
+        .toc a.active {
+            color: var(--accent);
+            font-weight: 600;
+            border-left: 3px solid var(--accent);
+            margin-left: -3px;
+            background: linear-gradient(90deg, rgba(52, 152, 219, 0.1), transparent);
+        }
+
+        .wiki-link-internal.missing {
+            color: #e74c3c;
+            border-bottom-color: #e74c3c;
+            background: rgba(231, 76, 60, 0.05);
+        }
+
+        /* Graph Modal */
+        #graphModal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.95);
+            z-index: 1500;
+            flex-direction: column;
+        }
+
+        body.dark-mode #graphModal {
+            background: rgba(30, 39, 46, 0.95);
+        }
+
+        #graphContainer {
+            flex: 1;
+            width: 100%;
+            height: 100%;
+        }
+
+        .graph-close-btn {
+            position: absolute;
+            top: 20px;
+            right: 30px;
+            background: var(--accent);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 50px;
+            cursor: pointer;
+            z-index: 1600;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            font-weight: bold;
+        }
+
+        /* Graph Settings */
+        .graph-settings-btn {
+            position: absolute;
+            top: 20px;
+            right: 120px;
+            background: rgba(255, 255, 255, 0.9);
+            color: #333;
+            border: none;
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            cursor: pointer;
+            z-index: 1600;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            font-size: 20px;
+            transition: all 0.3s;
+        }
+
+        .graph-settings-btn:hover {
+            transform: rotate(45deg) scale(1.1);
+            background: white;
+        }
+
+        body.dark-mode .graph-settings-btn {
+            background: rgba(45, 52, 54, 0.9);
+            color: #dfe6e9;
+        }
+
+        .graph-settings-panel {
+            display: none;
+            position: absolute;
+            top: 80px;
+            right: 30px;
+            background: rgba(255, 255, 255, 0.98);
+            border-radius: 16px;
+            padding: 20px;
+            width: 320px;
+            z-index: 1600;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+            backdrop-filter: blur(10px);
+        }
+
+        .graph-settings-panel.active {
+            display: block;
+        }
+
+        body.dark-mode .graph-settings-panel {
+            background: rgba(45, 52, 54, 0.98);
+            color: #dfe6e9;
+        }
+
+        .graph-settings-panel h3 {
+            margin: 0 0 15px 0;
+            font-size: 14px;
+            color: #666;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 10px;
+        }
+
+        body.dark-mode .graph-settings-panel h3 {
+            color: #aaa;
+            border-bottom-color: #444;
+        }
+
+        .setting-item {
+            margin-bottom: 16px;
+        }
+
+        .setting-item label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            color: #555;
+            margin-bottom: 6px;
+        }
+
+        body.dark-mode .setting-item label {
+            color: #aaa;
+        }
+
+        .setting-item input[type="range"] {
+            width: 100%;
+            height: 6px;
+            border-radius: 3px;
+            background: #e0e0e0;
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        .setting-item input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: var(--accent);
+            cursor: pointer;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+        }
+
+        body.dark-mode .setting-item input[type="range"] {
+            background: #444;
+        }
+
+        .graph-settings-reset {
+            width: 100%;
+            padding: 10px;
+            background: #f0f0f0;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 12px;
+            color: #666;
+            transition: all 0.2s;
+            margin-top: 10px;
+        }
+
+        .graph-settings-reset:hover {
+            background: #e0e0e0;
+            color: #333;
+        }
+
+        body.dark-mode .graph-settings-reset {
+            background: #3d3d3d;
+            color: #aaa;
+        }
+
+        body.dark-mode .graph-settings-reset:hover {
+            background: #4a4a4a;
+            color: #fff;
+        }
+
+        /* Mobile Adjustments */
+        @media (max-width: 768px) {
+            .modal-content {
+                height: 100vh;
+                width: 100%;
+                border-radius: 0;
+            }
+
+            .modal-content.mode-split .editor-container {
+                flex-direction: column;
+            }
+
+            .modal-content.mode-split .editor-main,
+            .modal-content.mode-split .preview-area {
+                height: 50%;
+                border-right: none;
+                border-bottom: 1px solid #eee;
+            }
+        }
+
+        /* Toolbar is hidden in preview mode */
+
+        /* Toolbar */
+        .toolbar {
+            padding: 12px 20px;
+            background: #fff;
+            border-bottom: 1px solid #f0f0f0;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .toolbar-btn {
+            background: white;
+            border: 1px solid #e1e4e8;
+            border-radius: 8px;
+            padding: 6px 12px;
+            cursor: pointer;
+            font-size: 13px;
+            color: #555;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+            font-weight: 500;
+        }
+
+        .toolbar-btn:hover {
+            background: #f8f9fa;
+            border-color: #d1d5da;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.08);
+            color: var(--accent);
+        }
+
+        .toolbar-btn:active {
+            transform: translateY(0);
+            box-shadow: none;
+        }
+
+        .view-controls {
+            display: flex;
+            background: #f0f2f5;
+            border-radius: 8px;
+            padding: 3px;
+            margin-left: 15px;
+        }
+
+        .view-btn {
+            padding: 6px 14px;
+            border-radius: 6px;
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            font-size: 13px;
+            color: #666;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .view-btn:hover {
+            color: var(--text-main);
+        }
+
+        .view-btn.active {
+            background: white;
+            color: var(--accent);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+            font-weight: 600;
+        }
+
+        .editor-container {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .editor-main {
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            gap: 15px;
+            background: #fafafa;
+            min-width: 200px;
+        }
+
+        /* Resizer */
+        .resizer {
+            width: 8px;
+            background: transparent;
+            cursor: col-resize;
+            position: relative;
+            flex-shrink: 0;
+            transition: background 0.2s;
+        }
+
+        .resizer::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 2px;
+            height: 100%;
+            background: #e1e4e8;
+            transition: all 0.2s;
+        }
+
+        .resizer:hover::before,
+        .resizer.active::before {
+            width: 4px;
+            background: var(--accent);
+        }
+
+        .resizer:hover,
+        .resizer.active {
+            background: rgba(52, 152, 219, 0.05);
+        }
+
+        /* Hide resizer when not in split mode */
+        .modal-content:not(.mode-split) .resizer {
+            display: none;
+        }
+
+        .editor-main input {
+            width: 100%;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 12px;
+            font-size: 16px;
+            font-weight: bold;
+        }
+
+        .editor-main .tag-input {
+            width: 100%;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 8px 12px;
+            font-size: 13px;
+        }
+
+        .editor-main textarea {
+            flex: 1;
+            width: 100%;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 15px;
+            font-size: 14px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            line-height: 1.6;
+            resize: none;
+            outline: none;
+        }
+
+        .preview-area {
+            position: relative;
+            /* For actions overlay */
+            padding: 0;
+            overflow-y: auto;
+            background: #fff;
+            display: block;
+            /* ensure block for margin auto */
+        }
+
+        /* Force full width in preview mode, overriding inline styles from resizer */
+        .modal-content.mode-preview .preview-area {
+            flex: 1 1 100% !important;
+            max-width: 100% !important;
+            display: flex;
+            justify-content: center;
+            gap: 40px;
+            align-items: flex-start;
+        }
+
+        .modal-content.mode-preview .preview-content-wrapper {
+            margin: 0 !important;
+            flex: 0 1 800px;
+            width: 100%;
+            transition: flex-basis 0.3s ease, max-width 0.3s ease;
+        }
+
+        .modal-content.mode-preview.is-wide .preview-content-wrapper {
+            flex: 0 1 100%;
+            max-width: 95%;
+        }
+
+        .preview-content-wrapper {
+            width: 100%;
+            max-width: 750px;
+            padding: 40px 60px;
+            margin: 0 auto;
+            /* Center content */
+            transition: all 0.3s ease;
+        }
+
+        .modal-content.is-wide .preview-content-wrapper {
+            max-width: 95%;
+            padding: 30px 80px;
+        }
+
+        .preview-actions {
+            position: sticky;
+            top: 10px;
+            float: right;
+            margin-right: 20px;
+            display: none;
+            gap: 8px;
+            z-index: 100;
+        }
+
+        .modal-content.mode-preview .preview-actions {
+            display: flex;
+            position: fixed;
+            top: 20px;
+            right: 30px;
+            float: none;
+            margin: 0;
+        }
+
+        .action-icon-btn {
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            width: 40px;
+            height: 40px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            transition: all 0.2s;
+        }
+
+        .action-icon-btn:hover {
+            background: #f8f9fa;
+            transform: translateY(-2px);
+        }
+
+        /* Typography */
+        .preview-content {
+            color: #24292e;
+            font-size: 16px;
+            line-height: 1.6;
+            word-wrap: break-word;
+        }
+
+        .preview-content h1 {
+            font-size: 2em;
+            margin: 1em 0 0.5em;
+            padding-bottom: 0.3em;
+            border-bottom: 1px solid #eaecef;
+            font-weight: 600;
+        }
+
+        .preview-content h2 {
+            font-size: 1.5em;
+            margin: 1.25em 0 0.5em;
+            padding-bottom: 0.25em;
+            border-bottom: 1px solid #eaecef;
+            font-weight: 600;
+        }
+
+        .preview-content p {
+            margin-top: 0;
+            margin-bottom: 16px;
+        }
+
+        .preview-content ul,
+        .preview-content ol {
+            padding-left: 2em;
+            margin-bottom: 16px;
+        }
+
+        .preview-content code {
+            padding: 0.2em 0.4em;
+            margin: 0;
+            font-size: 85%;
+            background-color: rgba(27, 31, 35, 0.05);
+            border-radius: 3px;
+            font-family: monospace;
+        }
+
+        .preview-content table {
+            display: block;
+            width: 100%;
+            overflow: auto;
+            border-spacing: 0;
+            border-collapse: collapse;
+            margin-bottom: 16px;
+        }
+
+        .preview-content table th,
+        .preview-content table td {
+            padding: 6px 13px;
+            border: 1px solid #dfe2e5;
+        }
+
+        .preview-content table tr {
+            background-color: #fff;
+            border-top: 1px solid #c6cbd1;
+        }
+
+        .preview-content table tr:nth-child(even) {
+            background-color: #f6f8fa;
+        }
+
+        .modal-footer {
+            padding: 15px 20px;
+            background: #f8f9fa;
+            border-top: 1px solid #ddd;
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            /* Vertical center */
+            gap: 12px;
+            width: 100%;
+            box-sizing: border-box;
+            flex-shrink: 0;
+        }
+
+        /* Float Controls for Preview Mode */
+        .preview-float-controls {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 100;
+            display: none;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .modal-content.mode-preview .preview-float-controls {
+            display: flex;
+        }
+
+        .float-btn {
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 20px;
+            padding: 8px 16px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            cursor: pointer;
+            font-size: 13px;
+            color: #555;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 36px;
+            font-weight: 600;
+        }
+
+        .float-btn-icon {
+            width: 36px;
+            padding: 0;
+            font-size: 18px;
+            border-radius: 50%;
+        }
+
+        .float-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 15px rgba(0, 0, 0, 0.15);
+            color: var(--text-main);
+        }
+
+        body.dark-mode .float-btn {
+            background: #2d3436;
+            border-color: #555;
+            color: #dfe6e9;
+        }
+
+        /* Sidebar Styles */
+        .main-wrapper {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+            width: 100%;
+        }
+
+        .sidebar {
+            width: 250px;
+            background: #f8f9fa;
+            border-right: 1px solid #ddd;
+            display: flex;
+            flex-direction: column;
+            transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            flex-shrink: 0;
+            z-index: 5;
+        }
+
+        .sidebar.hidden {
+            margin-left: -250px;
+        }
+
+        .sidebar-header {
+            padding: 15px;
+            border-bottom: 1px solid #eee;
+            background: inherit;
+        }
+
+        .sidebar-search {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 13px;
+            outline: none;
+        }
+
+        .sidebar-search:focus {
+            border-color: var(--accent);
+        }
+
+        .sidebar-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 0;
+        }
+
+        .sidebar-item {
+            padding: 12px 15px;
+            cursor: pointer;
+            border-left: 3px solid transparent;
+            font-size: 14px;
+            color: #555;
+            transition: all 0.2s;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.03);
+        }
+
+        .sidebar-item:hover {
+            background: rgba(0, 0, 0, 0.02);
+            color: var(--accent);
+        }
+
+        .sidebar-item.active {
+            background: white;
+            border-left-color: var(--accent);
+            color: var(--accent);
+            font-weight: 600;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+        }
+
+        .sidebar-item .title {
+            display: block;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .sidebar-item .date {
+            font-size: 11px;
+            color: #999;
+            display: block;
+            margin-top: 4px;
+        }
+
+        .right-panel {
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            overflow: hidden;
+            min-width: 0;
+            position: relative;
+        }
+
+        /* Dark mode adjustments for Sidebar */
+        body.dark-mode .sidebar {
+            background: #2d3436;
+            border-color: #444;
+        }
+
+        body.dark-mode .sidebar-header {
+            border-color: #444;
+        }
+
+        body.dark-mode .sidebar-item {
+            color: #b2bec3;
+            border-bottom-color: rgba(255, 255, 255, 0.03);
+        }
+
+        body.dark-mode .sidebar-item:hover {
+            background: rgba(255, 255, 255, 0.05);
+            color: #dfe6e9;
+        }
+
+        body.dark-mode .sidebar-item.active {
+            background: rgba(255, 255, 255, 0.1);
+            color: #74b9ff;
+        }
+
+        body.dark-mode .sidebar-search {
+            background: #1e272e;
+            color: #fff;
+            border-color: #555;
+        }
+
+        /* Adjust mobile behavior */
+        @media (max-width: 768px) {
+            .sidebar {
+                position: absolute;
+                top: 0;
+                bottom: 0;
+                left: 0;
+                box-shadow: 2px 0 10px rgba(0, 0, 0, 0.2);
+            }
+
+            /* When hidden on mobile, just move it off screen */
+            .sidebar.hidden {
+                margin-left: -250px;
+            }
+        }
+
+        /* Tree View Styles */
+        .tree-folder {
+            margin-bottom: 2px;
+        }
+
+        .tree-folder summary {
+            cursor: pointer;
+            padding: 8px 15px;
+            font-size: 13px;
+            font-weight: 600;
+            color: #444;
+            user-select: none;
+            list-style: none;
+            /* Hide default triangle */
+            position: relative;
+            padding-left: 25px;
+            /* Space for custom arrow */
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .tree-folder summary::-webkit-details-marker {
+            display: none;
+        }
+
+        .tree-folder summary::before {
+            content: '▶';
+            font-size: 10px;
+            position: absolute;
+            left: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            transition: transform 0.2s;
+            color: #999;
+        }
+
+        .tree-folder[open]>summary::before {
+            transform: translateY(-50%) rotate(90deg);
+        }
+
+        .tree-folder summary:hover {
+            background: rgba(0, 0, 0, 0.03);
+            color: var(--accent);
+        }
+
+        .tree-sub-level {
+            border-left: 1px solid rgba(0, 0, 0, 0.05);
+            margin-left: 14px;
+            /* Align with arrow */
+        }
+
+        body.dark-mode .tree-folder summary {
+            color: #b2bec3;
+        }
+
+        body.dark-mode .tree-folder summary:hover {
+            background: rgba(255, 255, 255, 0.05);
+            color: #dfe6e9;
+        }
+
+        body.dark-mode .tree-sub-level {
+            border-left-color: rgba(255, 255, 255, 0.05);
+        }
+
+        /* Folder Insert Button */
+        .folder-insert-btn {
+            margin-left: auto;
+            padding: 2px 6px;
+            font-size: 11px;
+            background: rgba(52, 152, 219, 0.1);
+            border: 1px solid rgba(52, 152, 219, 0.3);
+            border-radius: 4px;
+            cursor: pointer;
+            color: var(--accent);
+            opacity: 0.6;
+            transition: all 0.2s;
+        }
+
+        .folder-insert-btn:hover {
+            opacity: 1;
+            background: rgba(52, 152, 219, 0.2);
+            transform: scale(1.05);
+        }
+
+        body.dark-mode .folder-insert-btn {
+            background: rgba(116, 185, 255, 0.1);
+            border-color: rgba(116, 185, 255, 0.3);
+            color: #74b9ff;
+        }
+
+        /* Link Insert Button */
+        .link-insert-btn {
+            flex-shrink: 0;
+            padding: 2px 5px;
+            font-size: 10px;
+            background: rgba(155, 89, 182, 0.1);
+            border: 1px solid rgba(155, 89, 182, 0.3);
+            border-radius: 4px;
+            cursor: pointer;
+            color: #9b59b6;
+            opacity: 0.5;
+            transition: all 0.2s;
+        }
+
+        .link-insert-btn:hover {
+            opacity: 1;
+            background: rgba(155, 89, 182, 0.2);
+            transform: scale(1.1);
+        }
+
+        body.dark-mode .link-insert-btn {
+            background: rgba(165, 94, 234, 0.1);
+            border-color: rgba(165, 94, 234, 0.3);
+            color: #a55eea;
+        }
+
+        /* Input with Label Styles */
+        .input-wrapper {
+            position: relative;
+            width: 100%;
+        }
+
+        .input-wrapper input {
+            width: 100%;
+            padding-right: 70px;
+            /* Space for label */
+        }
+
+        .field-label {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 11px;
+            color: #999;
+            opacity: 0.5;
+            pointer-events: none;
+            font-weight: 500;
+        }
+
+        body.dark-mode .field-label {
+            color: #888;
+        }
+
+        /* View Mode Tabs */
+        .view-mode-tabs {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .tab-btn {
+            padding: 8px 20px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 20px;
+            background: transparent;
+            color: rgba(255, 255, 255, 0.7);
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.3s;
+            font-weight: 500;
+        }
+
+        .tab-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: rgba(255, 255, 255, 0.5);
+        }
+
+        .tab-btn.active {
+            background: rgba(255, 255, 255, 0.2);
+            border-color: #fff;
+            color: #fff;
+            font-weight: 600;
+        }
+
+        /* Folder Section */
+        .folder-section {
+            margin-bottom: 40px;
+        }
+
+        .folder-section h3 {
+            color: var(--text-main);
+            font-size: 1.2rem;
+            margin-bottom: 15px;
+            padding: 10px 15px;
+            background: var(--card-bg);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+            cursor: pointer;
+            transition: all 0.2s;
+            user-select: none;
+        }
+
+        .folder-section h3:hover {
+            background: rgba(255, 255, 255, 0.15);
+            transform: scale(1.01);
+        }
+
+        .folder-section h3::before {
+            content: '▶';
+            font-size: 0.8em;
+            transition: transform 0.3s;
+            margin-right: 5px;
+        }
+
+        .folder-section.expanded h3::before {
+            transform: rotate(90deg);
+        }
+
+        .folder-section .wiki-grid {
+            display: none;
+        }
+
+        .folder-section.expanded .wiki-grid {
+            display: grid;
+        }
+
+        .folder-section .count {
+            font-size: 0.9rem;
+            opacity: 0.6;
+            font-weight: 400;
+        }
+
+        body.dark-mode .folder-section h3 {
+            background: #2d3436;
+            color: #dfe6e9;
+        }
+    </style>
+    <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+</head>
+
+<body>
+
+    <div class="container">
+        <header>
+            <h1>📘 Wiki Editor</h1>
+            <div class="search-area">
+                <input type="text" id="searchInput" placeholder="タイトルやタグ、本文で検索..." oninput="renderWiki()">
+                <button class="btn btn-add" onclick="openModal()">＋ 新規作成</button>
+            </div>
+            <div id="tagCloud" class="tag-cloud"></div>
+
+            <!-- View Mode Tabs -->
+            <div class="view-mode-tabs" style="margin-top: 20px;">
+                <button class="tab-btn active" data-mode="list" onclick="setHomeViewMode('list')">📋 リスト表示</button>
+                <button class="tab-btn" data-mode="folder" onclick="setHomeViewMode('folder')">📁 フォルダ表示</button>
+            </div>
+
+            <div
+                style="margin-top: 15px; display:flex; justify-content:center; gap:15px; font-size: 12px; color: rgba(255,255,255,0.8);">
+                <span style="cursor:pointer; text-decoration:underline; display:flex; align-items:center; gap:4px;"
+                    onclick="showGraph()">🕸️ グラフビュー</span>
+                <span style="cursor:pointer; text-decoration:underline; display:flex; align-items:center; gap:4px;"
+                    onclick="toggleDarkMode()">🌙 ダークモード</span>
+                <span style="cursor:pointer; text-decoration:underline; display:flex; align-items:center; gap:4px;"
+                    onclick="exportData()">💾 バックアップ保存</span>
+                <span style="cursor:pointer; text-decoration:underline; display:flex; align-items:center; gap:4px;"
+                    onclick="document.getElementById('fileInput').click()">📂 復元</span>
+                <input type="file" id="fileInput" style="display:none" accept=".json" onchange="importData(this)">
+            </div>
+            <div id="storageInfo"
+                style="margin-top: 10px; font-size: 11px; color: rgba(255,255,255,0.6); text-align:center;"></div>
+        </header>
+
+        <div class="wiki-grid" id="wikiGrid"></div>
+    </div>
+
+    <div class="modal" id="wikiModal">
+        <div class="modal-content mode-split" id="modalContent">
+            <div class="modal-header">
+                <button class="btn"
+                    style="background:transparent; color:#666; font-size:20px; padding:0 10px; margin-right:5px; border-radius:50%; width:40px; height:40px; display:flex; align-items:center; justify-content:center;"
+                    onclick="toggleSidebar()" title="サイドバー切り替え">☰</button>
+                <h2 id="modalTitle" style="flex:1;">ナレッジの編集</h2>
+                <div class="view-controls">
+                    <button class="view-btn" onclick="setViewMode('editor')" id="btnViewEditor">エディタ</button>
+                    <button class="view-btn active" onclick="setViewMode('split')" id="btnViewSplit">分割</button>
+                    <button class="view-btn" onclick="setViewMode('preview')" id="btnViewPreview">プレビュー</button>
+                </div>
+                <button class="btn" style="background:transparent; color:#666; font-size:18px; padding:0 10px;"
+                    onclick="toggleMaximize()" title="最大化/元に戻す">⛶</button>
+                <button class="btn" style="background:transparent; color:#666; font-size:24px; padding:0 10px;"
+                    onclick="closeModal()">×</button>
+            </div>
+
+            <div class="main-wrapper">
+                <div class="sidebar" id="wikiSidebar">
+                    <div class="sidebar-header">
+                        <input type="text" class="sidebar-search" placeholder="クイック移動..."
+                            oninput="renderSidebar(this.value)">
+                    </div>
+                    <div class="sidebar-list" id="sidebarList">
+                        <!-- Items injected by JS -->
+                    </div>
+                </div>
+
+                <div class="right-panel">
+                    <div class="preview-float-controls">
+                        <button class="float-btn float-btn-icon" onclick="toggleSidebar()" title="サイドバー切り替え">☰</button>
+                        <button class="float-btn" onclick="setViewMode('split')">← 編集に戻る (ESC)</button>
+                    </div>
+                    <div class="toolbar" id="toolbar">
+                        <button class="toolbar-btn" onclick="insertText('# ', '')"><b>H1</b></button>
+                        <button class="toolbar-btn" onclick="insertText('## ', '')"><b>H2</b></button>
+                        <button class="toolbar-btn" onclick="insertText('**', '**')"><b>B</b></button>
+                        <button class="toolbar-btn" onclick="insertText('~~', '~~')"><s>S</s></button>
+                        <button class="toolbar-btn" onclick="insertText('> ', '')">引用</button>
+                        <button class="toolbar-btn" onclick="insertText('- ', '')">リスト</button>
+                        <button class="toolbar-btn" onclick="insertText('\n---\n', '')">線</button>
+                        <button class="toolbar-btn" onclick="insertTable()">表</button>
+                        <button class="toolbar-btn" onclick="insertText('\n```\n', '\n```')">コード</button>
+                        <button class="toolbar-btn" onclick="insertText('$$ ', ' $$')">数式</button>
+                        <button class="toolbar-btn" onclick="insertText('[[', ']]')" title="Wikiリンク">🔗</button>
+                        <button class="toolbar-btn" onclick="copyMarkdown()" title="Markdownをコピー">📋</button>
+                    </div>
+
+                    <div class="editor-container">
+                        <div class="editor-main">
+                            <div class="input-wrapper" style="margin-bottom:0;">
+                                <input type="text" id="wikiCategory" class="tag-input" placeholder="例: Blender/アドオン"
+                                    style="margin-bottom:0; border-radius: 8px 8px 0 0; border-bottom: none;">
+                                <span class="field-label">フォルダ</span>
+                            </div>
+                            <div class="input-wrapper" style="margin-top:0;">
+                                <input type="text" id="wikiTitle" placeholder="記事のタイトル"
+                                    style="border-radius: 0 0 8px 8px; margin-top:0;">
+                                <span class="field-label">タイトル</span>
+                            </div>
+                            <div class="input-wrapper">
+                                <input type="text" id="wikiTags" class="tag-input" placeholder="事務, 手順など">
+                                <span class="field-label">タグ</span>
+                            </div>
+                            <textarea id="wikiContent" placeholder="内容を書く..." oninput="updatePreview()"></textarea>
+                        </div>
+                        <div class="resizer" id="resizer"></div>
+                        <div class="preview-area">
+                            <div class="preview-actions">
+                                <button class="action-icon-btn" onclick="scrollToTop()" title="トップへ戻る">⬆️</button>
+                                <button class="action-icon-btn" onclick="toggleWideView()" title="全幅切り替え">↔️</button>
+                                <button class="action-icon-btn" onclick="copyMarkdown()" title="コピー">📋</button>
+                                <button class="action-icon-btn" onclick="downloadMarkdown()" title="MD保存">⬇️</button>
+                                <button class="action-icon-btn" onclick="closeModal()" title="ホーム一覧へ">🏠</button>
+                            </div>
+                            <div class="preview-content-wrapper">
+                                <div class="preview-content" id="previewContent"></div>
+                            </div>
+                            <div class="toc" id="tocArea">
+                                <h4>On this page</h4>
+                                <ul id="tocList"></ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button class="btn" style="background:#ff4757; color:white; margin-right:auto; border-radius:8px;"
+                    id="btnDelete" onclick="deleteEntry()">削除</button>
+                <button class="btn" style="background:#2ecc71; color:white; border-radius:8px;"
+                    onclick="createNewFromModal()" title="新しい記事を作成">＋ 新規</button>
+                <button class="btn" style="background:#eee; color:#333; border-radius:8px;"
+                    onclick="closeModal()">キャンセル</button>
+                <button class="btn" style="background:#3498db; color:white; border-radius:8px;"
+                    onclick="saveEntry()">保存</button>
+            </div>
+        </div>
+    </div>
+
+    </div>
+    </div>
+
+    <div class="lightbox" id="lightbox" onclick="closeLightbox()">
+        <img id="lightboxImg" src="">
+    </div>
+
+    <!-- Graph Modal -->
+    <div id="graphModal">
+        <button class="graph-settings-btn" onclick="toggleGraphSettings()" title="グラフ設定">⚙️</button>
+        <button class="graph-close-btn" onclick="closeGraph()">閉じる</button>
+
+        <div id="graphSettingsPanel" class="graph-settings-panel">
+            <h3>⚙️ グラフ設定</h3>
+
+            <div class="setting-item">
+                <label>減衰（動きの収束速度）<span id="dampingValue">0.3</span></label>
+                <input type="range" id="settingDamping" min="0.1" max="0.9" step="0.05" value="0.3"
+                    oninput="updateGraphSetting('damping', this.value)">
+            </div>
+
+            <div class="setting-item">
+                <label>バネ強度（引っ張り力）<span id="springValue">0.02</span></label>
+                <input type="range" id="settingSpring" min="0.005" max="0.05" step="0.005" value="0.02"
+                    oninput="updateGraphSetting('spring', this.value)">
+            </div>
+
+            <div class="setting-item">
+                <label>ノード間引力<span id="gravityValue">-800</span></label>
+                <input type="range" id="settingGravity" min="-5000" max="-50" step="50" value="-800"
+                    oninput="updateGraphSetting('gravity', this.value)">
+            </div>
+
+            <div class="setting-item">
+                <label>中心引力<span id="centralGravityValue">0.3</span></label>
+                <input type="range" id="settingCentralGravity" min="0" max="1" step="0.1" value="0.3"
+                    oninput="updateGraphSetting('centralGravity', this.value)">
+            </div>
+
+            <div class="setting-item">
+                <label>ノード間距離<span id="springLengthValue">120</span></label>
+                <input type="range" id="settingSpringLength" min="10" max="600" step="10" value="120"
+                    oninput="updateGraphSetting('springLength', this.value)">
+            </div>
+
+            <div class="setting-item">
+                <label>アニメ速度（ms）<span id="animSpeedValue">4000</span></label>
+                <input type="range" id="settingAnimSpeed" min="100" max="10000" step="100" value="4000"
+                    oninput="updateGraphSetting('animSpeed', this.value)">
+            </div>
+
+            <div class="setting-item">
+                <label>オートツアー間隔（ms）<span id="tourIntervalValue">8000</span></label>
+                <input type="range" id="settingTourInterval" min="1000" max="20000" step="500" value="8000"
+                    oninput="updateGraphSetting('tourInterval', this.value)">
+            </div>
+
+            <div class="setting-item">
+                <label>開始までの待機（ms）<span id="tourDelayValue">3000</span></label>
+                <input type="range" id="settingTourDelay" min="500" max="10000" step="500" value="3000"
+                    oninput="updateGraphSetting('tourDelay', this.value)">
+            </div>
+
+            <div class="setting-item">
+                <label>振動幅<span id="shakeDistanceValue">140</span></label>
+                <input type="range" id="settingShakeDistance" min="0" max="500" step="10" value="140"
+                    oninput="updateGraphSetting('shakeDistance', this.value)">
+            </div>
+
+            <div class="setting-item">
+                <label>フォーカス倍率<span id="focusScaleValue">1.2</span></label>
+                <input type="range" id="settingFocusScale" min="0.5" max="2.0" step="0.1" value="1.2"
+                    oninput="updateGraphSetting('focusScale', this.value)">
+            </div>
+
+            <div class="setting-item" style="display: flex; align-items: center; justify-content: space-between;">
+                <label style="margin-bottom: 0;">カメラ追従</label>
+                <input type="checkbox" id="settingCameraFollow" style="width: auto;"
+                    onchange="updateGraphSetting('cameraFollow', this.checked)">
+            </div>
+
+            <div class="setting-item">
+                <label>文字サイズ<span id="fontSizeValue">14</span></label>
+                <input type="range" id="settingFontSize" min="0" max="30" step="1" value="14"
+                    oninput="updateGraphSetting('fontSize', this.value)">
+            </div>
+
+            <button class="graph-settings-reset" onclick="resetGraphSettings()">🔄 デフォルトに戻す</button>
+        </div>
+
+        <div id="graphContainer"></div>
+    </div>
+
+    <script>
+        let entries = [];
+        let editingId = null;
+
+        const STORAGE_KEY = 'personal_wiki_data';
+        const GRAPH_SETTINGS_KEY = 'wiki_graph_settings';
+
+        // Graph Settings Defaults
+        const graphDefaults = {
+            damping: 0.3,
+            spring: 0.02,
+            gravity: -800,
+            centralGravity: 0.3,
+            springLength: 120,
+            animSpeed: 4000,
+            tourInterval: 8000,
+            tourDelay: 3000,
+            shakeDistance: 140,
+            focusScale: 1.2,
+            fontSize: 14,
+            cameraFollow: false
+        };
+
+        let graphSettings = { ...graphDefaults };
+
+        function loadGraphSettings() {
+            const saved = localStorage.getItem(GRAPH_SETTINGS_KEY);
+            if (saved) {
+                graphSettings = { ...graphDefaults, ...JSON.parse(saved) };
+            }
+            // Update UI sliders
+            document.getElementById('settingDamping').value = graphSettings.damping;
+            document.getElementById('settingSpring').value = graphSettings.spring;
+            document.getElementById('settingGravity').value = graphSettings.gravity;
+            document.getElementById('settingCentralGravity').value = graphSettings.centralGravity;
+            document.getElementById('settingSpringLength').value = graphSettings.springLength;
+            document.getElementById('settingAnimSpeed').value = graphSettings.animSpeed;
+            document.getElementById('settingTourInterval').value = graphSettings.tourInterval;
+            document.getElementById('settingTourDelay').value = graphSettings.tourDelay;
+            document.getElementById('settingShakeDistance').value = graphSettings.shakeDistance;
+            document.getElementById('settingFocusScale').value = graphSettings.focusScale;
+            document.getElementById('settingFocusScale').value = graphSettings.focusScale;
+            document.getElementById('settingFontSize').value = graphSettings.fontSize;
+            if (document.getElementById('settingCameraFollow')) {
+                document.getElementById('settingCameraFollow').checked = graphSettings.cameraFollow;
+            }
+            // Update display values
+            document.getElementById('dampingValue').textContent = graphSettings.damping;
+            document.getElementById('springValue').textContent = graphSettings.spring;
+            document.getElementById('gravityValue').textContent = graphSettings.gravity;
+            document.getElementById('centralGravityValue').textContent = graphSettings.centralGravity;
+            document.getElementById('springLengthValue').textContent = graphSettings.springLength;
+            document.getElementById('animSpeedValue').textContent = graphSettings.animSpeed;
+            document.getElementById('tourIntervalValue').textContent = graphSettings.tourInterval;
+            document.getElementById('tourDelayValue').textContent = graphSettings.tourDelay;
+            document.getElementById('shakeDistanceValue').textContent = graphSettings.shakeDistance;
+            document.getElementById('focusScaleValue').textContent = graphSettings.focusScale;
+            document.getElementById('fontSizeValue').textContent = graphSettings.fontSize;
+        }
+
+        function saveGraphSettings() {
+            localStorage.setItem(GRAPH_SETTINGS_KEY, JSON.stringify(graphSettings));
+        }
+
+        function toggleGraphSettings() {
+            document.getElementById('graphSettingsPanel').classList.toggle('active');
+        }
+
+        function updateGraphSetting(key, value) {
+            if (key === 'cameraFollow') {
+                graphSettings[key] = value; // boolean
+                saveGraphSettings();
+                return;
+            }
+
+            const numValue = parseFloat(value);
+            graphSettings[key] = numValue;
+
+            // Update display
+            const displayIds = {
+                damping: 'dampingValue',
+                spring: 'springValue',
+                gravity: 'gravityValue',
+                centralGravity: 'centralGravityValue',
+                springLength: 'springLengthValue',
+                animSpeed: 'animSpeedValue',
+                tourInterval: 'tourIntervalValue',
+                tourDelay: 'tourDelayValue',
+                shakeDistance: 'shakeDistanceValue',
+                focusScale: 'focusScaleValue',
+                fontSize: 'fontSizeValue'
+            };
+            document.getElementById(displayIds[key]).textContent = value;
+
+            // Apply to network if it exists
+            if (typeof network !== 'undefined' && network) {
+                if (key === 'damping') {
+                    network.setOptions({ physics: { barnesHut: { damping: numValue } } });
+                } else if (key === 'spring') {
+                    network.setOptions({ physics: { barnesHut: { springConstant: numValue } } });
+                } else if (key === 'gravity') {
+                    network.setOptions({ physics: { barnesHut: { gravitationalConstant: numValue } } });
+                } else if (key === 'centralGravity') {
+                    network.setOptions({ physics: { barnesHut: { centralGravity: numValue } } });
+                } else if (key === 'springLength') {
+                    network.setOptions({ physics: { barnesHut: { springLength: numValue } } });
+                } else if (key === 'fontSize') {
+                    network.setOptions({ nodes: { font: { size: numValue } } });
+                }
+            }
+
+            saveGraphSettings();
+        }
+
+        function resetGraphSettings() {
+            graphSettings = { ...graphDefaults };
+            saveGraphSettings();
+            loadGraphSettings();
+
+            // Reset UI Checkbox
+            if (document.getElementById('settingCameraFollow')) {
+                document.getElementById('settingCameraFollow').checked = graphDefaults.cameraFollow;
+            }
+
+            // Apply to network
+            if (typeof network !== 'undefined' && network) {
+                network.setOptions({
+                    physics: {
+                        barnesHut: {
+                            damping: graphDefaults.damping,
+                            springConstant: graphDefaults.spring,
+                            gravitationalConstant: graphDefaults.gravity,
+                            centralGravity: graphDefaults.centralGravity,
+                            springLength: graphDefaults.springLength
+                        }
+                    },
+                    nodes: { font: { size: graphDefaults.fontSize } }
+                });
+            }
+        }
+
+        function init() {
+            const saved = localStorage.getItem(STORAGE_KEY);
+            if (saved) { entries = JSON.parse(saved); }
+            else {
+                entries = [{
+                    id: Date.now(),
+                    title: "高度なプレビュー機能の使い方",
+                    tags: ["マニュアル", "New"],
+                    content: "# Wikiへようこそ\n\n閲覧機能を大幅に強化しました。\n\n## 1. 全画面プレビュー\n右上の「プレビュー」ボタン、またはカードクリックで没入モードに入ります。\n\n## 2. 全幅切り替え\nプレビュー中の右上の `↔️` ボタンで、画面いっぱいまで横幅を広げられます。大きな表も快適に閲覧可能です。\n\n## 3. 目次（TOC）\n見出しをつけると、プレビューモードの右側に目次が自動生成されます。\n\n| 機能 | メリット |\n| :--- | :--- |\n| 全幅表示 | 表が見やすい |\n| 目次 | 長文でも迷わない |\n| ESCキー | すぐに編集へ戻れる |",
+                    updated: new Date().toLocaleString()
+                }];
+                saveToStorage();
+            }
+            renderWiki();
+            updateStorageInfo();
+            checkBackupReminder();
+            // Restore view mode
+            setHomeViewMode(currentViewMode);
+        }
+
+        function saveToStorage() {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
+            updateStorageInfo();
+        }
+
+        // View Mode Management
+        let currentViewMode = localStorage.getItem('homeViewMode') || 'list';
+
+        function setHomeViewMode(mode) {
+            currentViewMode = mode;
+            localStorage.setItem('homeViewMode', mode);
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.mode === mode);
+            });
+            renderWiki();
+        }
+
+        function groupByFolder(articles) {
+            const groups = {};
+            articles.forEach(article => {
+                const folder = article.category || '📝 その他';
+                if (!groups[folder]) groups[folder] = [];
+                groups[folder].push(article);
+            });
+            return groups;
+        }
+
+        function renderWiki() {
+            const grid = document.getElementById('wikiGrid');
+            const queryRaw = document.getElementById('searchInput').value.toLowerCase();
+            const queries = queryRaw.split(/\s+/).filter(q => q); // Split for AND search
+
+            const tagCloud = document.getElementById('tagCloud');
+
+            // Generate Tag Cloud
+            const allTags = entries.reduce((acc, curr) => [...acc, ...curr.tags], []);
+            const uniqueTags = [...new Set(allTags)];
+            tagCloud.innerHTML = uniqueTags.map(tag =>
+                `<span class="tag-chip" onclick="filterByTag('${tag}')">#${tag}</span>`
+            ).join('');
+
+            grid.innerHTML = '';
+
+            const filteredEntries = entries.filter(e => {
+                // AND Search Logic (Full-text including content and category)
+                if (queries.length === 0) return true;
+                return queries.every(q => {
+                    return e.title.toLowerCase().includes(q) ||
+                        (e.category || '').toLowerCase().includes(q) ||
+                        e.content.toLowerCase().includes(q) ||
+                        e.tags.some(tag => tag.toLowerCase().includes(q));
+                });
+            });
+
+            if (currentViewMode === 'folder') {
+                // Folder View
+                const groups = groupByFolder(filteredEntries);
+                const sortedFolders = Object.keys(groups).sort();
+
+                sortedFolders.forEach((folderName, index) => {
+                    const section = document.createElement('div');
+                    section.className = 'folder-section';
+                    // Expand first 3 folders by default
+                    if (index < 3) section.classList.add('expanded');
+
+                    const header = document.createElement('h3');
+                    header.innerHTML = `📁 ${folderName} <span class="count">(${groups[folderName].length})</span>`;
+                    header.onclick = () => section.classList.toggle('expanded');
+                    section.appendChild(header);
+
+                    const folderGrid = document.createElement('div');
+                    folderGrid.className = 'wiki-grid';
+
+                    groups[folderName].forEach(entry => {
+                        const card = createWikiCard(entry, queries[0]);
+                        folderGrid.appendChild(card);
+                    });
+
+                    section.appendChild(folderGrid);
+                    grid.appendChild(section);
+                });
+            } else {
+                // List View (original)
+                filteredEntries.forEach(entry => {
+                    const card = createWikiCard(entry, queries[0]);
+                    grid.appendChild(card);
+                });
+            }
+        }
+
+        function createWikiCard(entry, primaryQuery) {
+            const card = document.createElement('div');
+            card.className = 'wiki-card';
+            card.onclick = () => openModal(entry.id);
+
+            // Search Snippet Logic
+            let previewText = entry.content.replace(/[#*`|]/g, '');
+            if (primaryQuery) {
+                const idx = previewText.toLowerCase().indexOf(primaryQuery);
+                if (idx > -1) {
+                    const start = Math.max(0, idx - 20);
+                    previewText = (start > 0 ? '...' : '') + previewText.substring(start, start + 100);
+                } else {
+                    previewText = previewText.substring(0, 100);
+                }
+            } else {
+                previewText = previewText.substring(0, 100);
+            }
+            if (previewText.length >= 100) previewText += '...';
+
+            card.innerHTML = `
+                <h3>${entry.title}</h3>
+                <div class="tags">${entry.tags.map(t => `<span class="tag">${t}</span>`).join('')}</div>
+                <div class="preview">${previewText}</div>
+                <div class="footer"><span>最終更新</span><span>${entry.updated}</span></div>
+            `;
+            return card;
+        }
+
+        function setViewMode(mode) {
+            const content = document.getElementById('modalContent');
+            content.classList.remove('mode-editor', 'mode-split', 'mode-preview');
+            content.classList.add('mode-' + mode);
+            document.querySelectorAll('.view-btn').forEach(btn => btn.classList.toggle('active', btn.id === 'btnView' + mode.charAt(0).toUpperCase() + mode.slice(1)));
+            if (mode === 'preview') {
+                // Wait for libraries to load if necessary, though defer helps.
+                setTimeout(updatePreview, 0);
+            }
+        }
+
+        function toggleWideView() {
+            document.getElementById('modalContent').classList.toggle('is-wide');
+        }
+
+        function insertText(before, after) {
+            const textarea = document.getElementById('wikiContent');
+            const start = textarea.selectionStart;
+            const end = textarea.selectionEnd;
+            const text = textarea.value;
+            textarea.value = text.substring(0, start) + before + text.substring(start, end) + after + text.substring(end);
+            textarea.focus();
+            textarea.setSelectionRange(start + before.length, end + before.length);
+            updatePreview();
+        }
+
+        function insertTable() { insertText("\n| Col 1 | Col 2 |\n| :--- | :--- |\n| Data | Data |\n\n", ""); }
+
+        function copyMarkdown() {
+            navigator.clipboard.writeText(document.getElementById('wikiContent').value);
+            const btn = event.currentTarget;
+            const originalText = btn.innerHTML;
+            btn.innerHTML = "✅";
+            setTimeout(() => btn.innerHTML = originalText, 2000);
+        }
+
+        function downloadMarkdown() {
+            const title = document.getElementById('wikiTitle').value.trim() || 'untitled';
+            const content = document.getElementById('wikiContent').value;
+            const blob = new Blob([content], { type: 'text/markdown' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = title + '.md';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        function openModal(id = null) {
+            if (id) {
+                editingId = id;
+                const entry = entries.find(e => e.id === id);
+                document.getElementById('wikiTitle').value = entry.title;
+                document.getElementById('wikiCategory').value = entry.category || '';
+                document.getElementById('wikiTags').value = entry.tags.join(', ');
+                document.getElementById('wikiContent').value = entry.content;
+                document.getElementById('btnDelete').style.display = 'block';
+                setViewMode('preview');
+            } else {
+                editingId = null;
+                document.getElementById('wikiTitle').value = '';
+                document.getElementById('wikiCategory').value = '';
+                document.getElementById('wikiTags').value = '';
+                document.getElementById('wikiContent').value = '';
+                document.getElementById('btnDelete').style.display = 'none';
+                setViewMode('split');
+            }
+            document.getElementById('wikiModal').classList.add('active');
+
+            // Reset Scroll Position
+            document.getElementById('wikiContent').scrollTop = 0;
+            document.getElementById('previewContent').scrollTop = 0;
+
+            renderSidebar();
+            updatePreview();
+        }
+
+        function closeModal() { document.getElementById('wikiModal').classList.remove('active'); }
+
+        function createNewFromModal() {
+            // Reset form for new entry
+            editingId = null;
+            document.getElementById('wikiTitle').value = '';
+            document.getElementById('wikiCategory').value = '';
+            document.getElementById('wikiTags').value = '';
+            document.getElementById('wikiContent').value = '';
+            document.getElementById('btnDelete').style.display = 'none';
+            setViewMode('split');
+            renderSidebar();
+            updatePreview();
+            // Focus on title field
+            document.getElementById('wikiTitle').focus();
+        }
+
+        function saveEntry() {
+            const title = document.getElementById('wikiTitle').value.trim();
+            if (!title) { alert('タイトルを入力してください'); return; }
+
+            const category = document.getElementById('wikiCategory').value.trim();
+
+            const entry = {
+                id: editingId || Date.now(),
+                title,
+                category,
+                tags: document.getElementById('wikiTags').value.split(',').map(t => t.trim()).filter(t => t),
+                content: document.getElementById('wikiContent').value,
+                updated: new Date().toLocaleString()
+            };
+            if (editingId) { entries[entries.findIndex(e => e.id === editingId)] = entry; }
+            else { entries.push(entry); }
+            saveToStorage();
+            renderWiki();
+            renderSidebar(); // Refresh sidebar/tree
+            // Don't close modal, just show saved
+            const saveBtn = document.querySelector('.modal-footer button:last-child');
+            const originalText = saveBtn.innerText;
+            saveBtn.innerText = '保存完了';
+            setTimeout(() => {
+                saveBtn.innerText = originalText;
+                // if new entry, switch to edit mode correctly?
+                if (!editingId) {
+                    editingId = entry.id; // Switch to edit mode for the new ID
+                    document.getElementById('btnDelete').style.display = 'block';
+                }
+            }, 1000);
+        }
+
+        function deleteEntry() {
+            if (confirm('削除しますか？')) {
+                entries = entries.filter(e => e.id !== editingId);
+                saveToStorage();
+                renderWiki();
+                closeModal();
+            }
+        }
+
+        function updatePreview() {
+            const content = document.getElementById('wikiContent').value;
+            const preview = document.getElementById('previewContent');
+            const tocList = document.getElementById('tocList');
+            tocList.innerHTML = '';
+
+            // Setup Marked Renderer for TOC
+            const renderer = new marked.Renderer();
+            let tocData = [];
+
+            renderer.heading = function (textOrObj, level) {
+                let text = textOrObj;
+                let actualLevel = level;
+
+                // Handle newer Marked versions where first argument is an object {text, depth, ...}
+                if (typeof textOrObj === 'object' && textOrObj !== null) {
+                    text = textOrObj.text || '';
+                    actualLevel = textOrObj.depth || textOrObj.level || 1;
+                }
+
+                const safeText = String(text);
+                const escapedText = safeText.toLowerCase().replace(/[^\w]+/g, '-');
+                const id = `toc-${tocData.length}`; // Unique ID based on index
+                tocData.push({ text: safeText, level: actualLevel, id });
+                return `<h${actualLevel} id="${id}">${text}</h${actualLevel}>`;
+            };
+
+            // Open external links in new tab
+            renderer.link = function (href, title, text) {
+                // Check if it's an object (for newer marked versions)
+                if (typeof href === 'object') {
+                    const linkObj = href;
+                    href = linkObj.href;
+                    title = linkObj.title;
+                    text = linkObj.text;
+                }
+                const titleAttr = title ? ` title="${title}"` : '';
+                return `<a href="${href}" target="_blank" rel="noopener noreferrer"${titleAttr}>${text}</a>`;
+            };
+
+            // Configure Marked
+            marked.setOptions({
+                renderer: renderer,
+                breaks: true, // Convert \n to <br>
+                gfm: true     // GitHub Flavored Markdown
+            });
+
+            // Pre-process Wiki Links [[Title]] -> Custom Span (with Existence Check)
+            let processedContent = content.replace(/\[\[(.+?)\]\]/g, (match, title) => {
+                const exists = entries.some(e => e.title === title);
+                const className = exists ? 'wiki-link-internal' : 'wiki-link-internal missing';
+                const titleAttr = exists ? title : `${title} (未作成)`;
+                return `<span class="${className}" data-title="${title}">${title}</span>`;
+            });
+
+            // Parse Markdown & Sanitize
+            try {
+                let rawHtml = marked.parse(processedContent);
+                // Allow custom attributes for wiki links
+                preview.innerHTML = DOMPurify.sanitize(rawHtml, {
+                    ADD_TAGS: ['span'],
+                    ADD_ATTR: ['class', 'data-title', 'target']
+                });
+            } catch (e) {
+                preview.innerHTML = `<p style="color:red">Error parsing Markdown: ${e.message}</p>`;
+            }
+
+            // Generate TOC HTML
+            tocData.forEach(item => {
+                const li = document.createElement('li');
+                li.className = 'toc-h' + item.level;
+                // create clean text for display
+                const cleanText = item.text.replace(/<[^>]*>?/gm, '');
+                li.innerHTML = `<a href="#${item.id}" onclick="document.getElementById('${item.id}').scrollIntoView({behavior: 'smooth'}); return false;">${cleanText}</a>`;
+                tocList.appendChild(li);
+            });
+
+            // Apply Syntax Highlighting
+            if (window.hljs) {
+                preview.querySelectorAll('pre code').forEach((block) => {
+                    hljs.highlightElement(block);
+                });
+            }
+
+            // Render Math (KaTeX)
+            if (window.renderMathInElement) {
+                renderMathInElement(preview, {
+                    delimiters: [
+                        { left: '$$', right: '$$', display: true },
+                        { left: '$', right: '$', display: false },
+                        { left: '\\(', right: '\\)', display: false },
+                        { left: '\\[', right: '\\]', display: true }
+                    ],
+                    throwOnError: false
+                });
+            }
+
+            // Image Lightbox Setup
+            preview.querySelectorAll('img').forEach(img => {
+                img.onclick = (e) => {
+                    e.stopPropagation();
+                    openLightbox(img.src);
+                };
+            });
+
+            // TOC Scroll Sync (Intersection Observer)
+            if (window.tocObserver) window.tocObserver.disconnect();
+
+            const headings = preview.querySelectorAll('h1, h2');
+            const tocLinks = tocList.querySelectorAll('a');
+
+            const observerOptions = {
+                root: document.querySelector('.preview-area'),
+                rootMargin: '0px 0px -80% 0px', // Trigger when element is near top
+                threshold: 0
+            };
+
+            window.tocObserver = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const id = entry.target.id;
+                        tocLinks.forEach(link => {
+                            // Remove active from all, add to current
+                            link.classList.remove('active');
+                            if (link.getAttribute('href') === '#' + id) {
+                                link.classList.add('active');
+                            }
+                        });
+                        // Also try to scroll TOC to keep active item in view
+                        const activeLink = tocList.querySelector('.active');
+                        if (activeLink) {
+                            activeLink.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        }
+                    }
+                });
+            }, observerOptions);
+
+            headings.forEach(h => window.tocObserver.observe(h));
+        }
+
+        document.addEventListener('keydown', e => {
+            if (e.key === 'Escape' && document.getElementById('wikiModal').classList.contains('active')) {
+                const content = document.getElementById('modalContent');
+                if (content.classList.contains('mode-preview')) setViewMode('split');
+                else closeModal();
+            }
+            // Ctrl+S for Save
+            if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+                e.preventDefault();
+                if (document.getElementById('wikiModal').classList.contains('active')) {
+                    saveEntry();
+                    // Optional: Show temporary success feedback
+                    const saveBtn = document.querySelector('.modal-footer button:last-child');
+                    const originalText = saveBtn.innerText;
+                    saveBtn.innerText = '保存しました！';
+                    setTimeout(() => saveBtn.innerText = originalText, 1500);
+                }
+            }
+        });
+
+        // Handle Wiki Internal Links
+        document.addEventListener('click', e => {
+            if (e.target.classList.contains('wiki-link-internal')) {
+                const title = e.target.getAttribute('data-title');
+                openByTitle(title);
+            }
+        });
+
+        function openByTitle(title) {
+            const target = entries.find(e => e.title === title);
+            if (target) {
+                openModal(target.id);
+            } else {
+                if (confirm(`ページ "${title}" は存在しません。新規作成しますか？`)) {
+                    openModal();
+                    document.getElementById('wikiTitle').value = title;
+                }
+            }
+        }
+
+        // Backup & Restore
+        function exportData() {
+            const dataStr = JSON.stringify(entries, null, 2);
+            const blob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+
+            const now = new Date();
+            const timestamp = now.getFullYear() +
+                ('0' + (now.getMonth() + 1)).slice(-2) +
+                ('0' + now.getDate()).slice(-2) + '_' +
+                ('0' + now.getHours()).slice(-2) +
+                ('0' + now.getMinutes()).slice(-2) +
+                ('0' + now.getSeconds()).slice(-2);
+
+            const downloadAnchorNode = document.createElement('a');
+            downloadAnchorNode.href = url;
+            downloadAnchorNode.download = "personal_wiki_backup_" + timestamp + ".json";
+            document.body.appendChild(downloadAnchorNode);
+            downloadAnchorNode.click();
+            document.body.removeChild(downloadAnchorNode);
+            URL.revokeObjectURL(url);
+            // Save last backup timestamp
+            localStorage.setItem('wiki_last_backup', Date.now().toString());
+        }
+
+        function updateStorageInfo() {
+            const info = document.getElementById('storageInfo');
+            if (!info) return;
+            try {
+                const dataSize = new Blob([localStorage.getItem(STORAGE_KEY) || '']).size;
+                const maxSize = 5 * 1024 * 1024; // 5MB
+                const usedMB = (dataSize / 1024 / 1024).toFixed(2);
+                const percent = Math.round((dataSize / maxSize) * 100);
+                let color = 'rgba(255,255,255,0.6)';
+                if (percent > 80) color = '#e74c3c';
+                else if (percent > 50) color = '#f39c12';
+                info.innerHTML = `<span style="color:${color}">💾 容量: ${usedMB}MB / 5MB (${percent}%)</span>`;
+            } catch (e) {
+                info.innerHTML = '';
+            }
+        }
+
+        function checkBackupReminder() {
+            const lastBackup = localStorage.getItem('wiki_last_backup');
+            if (!lastBackup) return; // First time user, no reminder
+            const daysSinceBackup = (Date.now() - parseInt(lastBackup)) / (1000 * 60 * 60 * 24);
+            if (daysSinceBackup >= 7) {
+                setTimeout(() => {
+                    if (confirm(`最後のバックアップから${Math.floor(daysSinceBackup)}日経過しています。\nバックアップを保存しますか？`)) {
+                        exportData();
+                    }
+                }, 1000);
+            }
+        }
+
+        function importData(input) {
+            const file = input.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                try {
+                    const imported = JSON.parse(e.target.result);
+                    if (Array.isArray(imported)) {
+                        if (confirm('現在のデータを上書きして復元しますか？\n（現在のデータは失われます）')) {
+                            entries = imported;
+                            saveToStorage();
+                            renderWiki();
+                            alert('復元が完了しました。');
+                        }
+                    } else {
+                        alert('不正な形式のファイルです。');
+                    }
+                } catch (err) {
+                    alert('ファイルの読み込みに失敗しました: ' + err);
+                }
+            };
+            reader.readAsText(file);
+            input.value = ''; // Reset
+        }
+
+        function filterByTag(tag) {
+            const searchInput = document.getElementById('searchInput');
+            let current = searchInput.value.trim();
+            let tags = current ? current.split(/\s+/) : [];
+
+            if (tags.includes(tag)) {
+                // Toggle off
+                tags = tags.filter(t => t !== tag);
+            } else {
+                // Toggle on
+                tags.push(tag);
+            }
+
+            searchInput.value = tags.join(' ');
+            renderWiki();
+        }
+
+        // Graph View
+        let network = null;
+
+        // Generate color from folder name
+        function getFolderColor(category) {
+            if (!category) return '#6c5ce7'; // Default purple for uncategorized
+            const topFolder = category.split('/')[0].trim();
+            // Hash the folder name to get a hue
+            const hash = topFolder.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+            const hue = hash % 360;
+            return `hsl(${hue}, 65%, 55%)`;
+        }
+
+        function showGraph() {
+            const modal = document.getElementById('graphModal');
+            modal.style.display = 'flex';
+
+            // Load saved settings
+            loadGraphSettings();
+
+            // Count incoming links for each entry
+            const linkCounts = {};
+            entries.forEach(e => linkCounts[e.id] = 0);
+            entries.forEach(source => {
+                const links = [...source.content.matchAll(/\[\[(.+?)\]\]/g)].map(m => m[1]);
+                links.forEach(targetTitle => {
+                    const target = entries.find(e => e.title === targetTitle);
+                    if (target) {
+                        linkCounts[target.id] = (linkCounts[target.id] || 0) + 1;
+                    }
+                });
+            });
+
+            const nodes = new vis.DataSet(entries.map(e => {
+                const incomingLinks = linkCounts[e.id] || 0;
+                const baseSize = 15;
+                const sizeBonus = Math.min(incomingLinks * 5, 25); // Max +25
+                const nodeColor = getFolderColor(e.category);
+
+                return {
+                    id: e.id,
+                    label: e.title,
+                    shape: 'dot',
+                    size: baseSize + sizeBonus,
+                    color: {
+                        background: nodeColor,
+                        border: nodeColor,
+                        highlight: { background: nodeColor, border: '#fff' },
+                        hover: { background: nodeColor, border: '#fff' }
+                    },
+                    font: {
+                        color: document.body.classList.contains('dark-mode') ? '#fff' : '#333'
+                    },
+                    title: `${e.title}\n📁 ${e.category || '未分類'}\n🔗 ${incomingLinks}件のリンク`
+                };
+            }));
+
+            const edgesArr = [];
+            entries.forEach(source => {
+                // Extract connections [[Title]]
+                const links = [...source.content.matchAll(/\[\[(.+?)\]\]/g)].map(m => m[1]);
+                links.forEach(targetTitle => {
+                    const target = entries.find(e => e.title === targetTitle);
+                    if (target) {
+                        edgesArr.push({ from: source.id, to: target.id });
+                    }
+                });
+            });
+            const edges = new vis.DataSet(edgesArr);
+
+            const container = document.getElementById('graphContainer');
+            const data = { nodes: nodes, edges: edges };
+            const options = {
+                physics: {
+                    enabled: true,
+                    stabilization: {
+                        enabled: true,
+                        iterations: 80,
+                        updateInterval: 20
+                    },
+                    barnesHut: {
+                        gravitationalConstant: graphSettings.gravity,
+                        centralGravity: graphSettings.centralGravity,
+                        springConstant: graphSettings.spring,
+                        springLength: graphSettings.springLength,
+                        damping: graphSettings.damping,
+                        avoidOverlap: 0.3
+                    },
+                    minVelocity: 0.05,
+                    maxVelocity: 50,
+                    timestep: 0.5
+                },
+                interaction: { hover: true, tooltipDelay: 100 },
+                nodes: { font: { size: graphSettings.fontSize } }
+            };
+
+            network = new vis.Network(container, data, options);
+
+            network.on("click", function (params) {
+                if (params.nodes.length > 0) {
+                    closeGraph();
+                    openModal(params.nodes[0]);
+                }
+            });
+
+            // Auto-tour: Focus on random nodes periodically
+            let autoTourInterval = null;
+            let userInteractionTimeout = null;
+
+            function runTourStep() {
+                if (entries.length > 0 && network) {
+                    const randomEntry = entries[Math.floor(Math.random() * entries.length)];
+                    const targetId = randomEntry.id;
+
+                    // 1. "Hold" the node FIRST to stop it moving
+                    nodes.update({ id: targetId, fixed: true });
+
+                    // Disable view interaction during animation
+                    network.setOptions({ interaction: { dragView: false, dragNodes: false, zoomView: false } });
+
+                    // 2. Get the EXACT locked position
+                    const positions = network.getPositions([targetId]);
+                    const startPos = positions[targetId];
+
+                    if (!startPos) {
+                        nodes.update({ id: targetId, fixed: false }); // Release if failed
+                        network.setOptions({ interaction: { dragView: true, dragNodes: true, zoomView: true } });
+                        return;
+                    }
+
+                    // Generate random "drag" target position from the locked start position
+                    const shakeAngle = Math.random() * Math.PI * 2;
+                    const shakeDistance = graphSettings.shakeDistance / 2 + Math.random() * graphSettings.shakeDistance;
+                    const targetX = startPos.x + Math.cos(shakeAngle) * shakeDistance;
+                    const targetY = startPos.y + Math.sin(shakeAngle) * shakeDistance;
+
+                    // Drag animation settings
+                    const startTime = performance.now();
+                    const dragDuration = Math.min(graphSettings.animSpeed * 0.4, 1200); // Drag takes ~30-40% of cycle time, max 1.2s
+
+                    function animateDrag(currentTime) {
+                        const elapsed = currentTime - startTime;
+                        const progress = Math.min(elapsed / dragDuration, 1);
+
+                        // Ease out cubic for smooth dragging
+                        const ease = 1 - Math.pow(1 - progress, 3);
+
+                        const currentX = startPos.x + (targetX - startPos.x) * ease;
+                        const currentY = startPos.y + (targetY - startPos.y) * ease;
+
+                        if (network) {
+                            network.moveNode(targetId, currentX, currentY);
+                        }
+
+                        if (progress < 1) {
+                            requestAnimationFrame(animateDrag);
+                        } else {
+                            // Drag finished, release the node!
+                            if (network) {
+                                nodes.update({ id: targetId, fixed: false });
+
+                                // Re-enable interaction
+                                network.setOptions({ interaction: { dragView: true, dragNodes: true, zoomView: true } });
+
+                                // Start focus animation (zoom in) - Delayed to separate from bounce
+                                setTimeout(() => {
+                                    if (!network) return;
+
+                                    // Only move camera if enabled
+                                    if (graphSettings.cameraFollow) {
+                                        network.focus(targetId, {
+                                            scale: graphSettings.focusScale,
+                                            animation: {
+                                                duration: graphSettings.animSpeed,
+                                                easingFunction: 'easeInOutQuad'
+                                            }
+                                        });
+                                    }
+                                }, 500);
+
+                                // Let physics settle
+                                setTimeout(() => {
+                                    if (network) {
+                                        network.setOptions({
+                                            physics: {
+                                                barnesHut: { damping: Math.min(graphSettings.damping + 0.2, 0.9) }
+                                            }
+                                        });
+                                    }
+                                }, 500 + graphSettings.animSpeed * 0.8);
+
+                                setTimeout(() => {
+                                    if (network) {
+                                        network.setOptions({
+                                            physics: {
+                                                barnesHut: { damping: graphSettings.damping }
+                                            }
+                                        });
+                                    }
+                                }, 500 + graphSettings.animSpeed * 1.2);
+                            }
+                        }
+                    }
+
+                    // Start drag animation
+                    requestAnimationFrame(animateDrag);
+                }
+            }
+
+            function startAutoTour() {
+                if (autoTourInterval) return;
+
+                // Run immediately first!
+                runTourStep();
+
+                // Then schedule intervals
+                autoTourInterval = setInterval(runTourStep, graphSettings.tourInterval);
+            }
+
+            function stopAutoTour() {
+                if (autoTourInterval) {
+                    clearInterval(autoTourInterval);
+                    autoTourInterval = null;
+                }
+            }
+
+            function onUserInteraction() {
+                stopAutoTour();
+                if (userInteractionTimeout) clearTimeout(userInteractionTimeout);
+                userInteractionTimeout = setTimeout(() => {
+                    startAutoTour();
+                }, graphSettings.tourDelay); // Use setting value!
+            }
+
+            // Start auto-tour after initial stabilization
+            setTimeout(() => startAutoTour(), graphSettings.tourDelay);
+
+            // Pause on user interaction
+            network.on('dragStart', onUserInteraction);
+            // network.on('zoom', onUserInteraction); // Removed to avoid loop
+            // container.addEventListener('mousemove', onUserInteraction); // Removed to avoid sensitivity
+            container.addEventListener('mousedown', onUserInteraction);
+            container.addEventListener('wheel', onUserInteraction);
+
+            // Store cleanup function for closeGraph
+            network._cleanupAutoTour = () => {
+                stopAutoTour();
+                if (userInteractionTimeout) clearTimeout(userInteractionTimeout);
+            };
+        }
+
+        function closeGraph() {
+            if (network && network._cleanupAutoTour) {
+                network._cleanupAutoTour();
+            }
+            document.getElementById('graphModal').style.display = 'none';
+        }
+
+        // Lightbox
+        function openLightbox(src) {
+            const lb = document.getElementById('lightbox');
+            const img = document.getElementById('lightboxImg');
+            img.src = src;
+            lb.classList.add('active');
+        }
+
+        function closeLightbox() {
+            document.getElementById('lightbox').classList.remove('active');
+        }
+
+        // Dark Mode
+        function toggleDarkMode() {
+            document.body.classList.toggle('dark-mode');
+            localStorage.setItem('wiki_dark_mode', document.body.classList.contains('dark-mode'));
+        }
+
+        // Image Paste Support (with Compression)
+        document.getElementById('wikiContent').addEventListener('paste', function (e) {
+            const items = (e.clipboardData || e.originalEvent.clipboardData).items;
+            for (let index in items) {
+                const item = items[index];
+                if (item.kind === 'file' && item.type.startsWith('image/')) {
+                    const blob = item.getAsFile();
+                    const img = new Image();
+                    const url = URL.createObjectURL(blob);
+
+                    img.onload = function () {
+                        const canvas = document.createElement('canvas');
+                        let width = img.width;
+                        let height = img.height;
+                        const MAX_SIDE = 800; // Max dimension constraint
+
+                        if (width > height) {
+                            if (width > MAX_SIDE) { height *= MAX_SIDE / width; width = MAX_SIDE; }
+                        } else {
+                            if (height > MAX_SIDE) { width *= MAX_SIDE / height; height = MAX_SIDE; }
+                        }
+
+                        canvas.width = width;
+                        canvas.height = height;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, width, height);
+
+                        // Convert to JPEG with quality 0.7 for storage efficiency
+                        const base64 = canvas.toDataURL('image/jpeg', 0.7);
+                        insertText(`\n![](${base64})\n`, '');
+                        URL.revokeObjectURL(url);
+                    };
+                    img.src = url;
+                    e.preventDefault();
+                }
+            }
+        });
+
+        // Init with Dark Mode Check
+        const savedDarkMode = localStorage.getItem('wiki_dark_mode');
+        if (savedDarkMode === 'true') {
+            document.body.classList.add('dark-mode');
+        }
+
+        // Resizer functionality
+        const resizer = document.getElementById('resizer');
+        const editorMain = document.querySelector('.editor-main');
+        const previewArea = document.querySelector('.preview-area');
+        let isResizing = false;
+
+        resizer.addEventListener('mousedown', (e) => {
+            isResizing = true;
+            resizer.classList.add('active');
+            document.body.style.cursor = 'col-resize';
+            document.body.style.userSelect = 'none';
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (!isResizing) return;
+
+            const container = document.querySelector('.editor-container');
+            const containerRect = container.getBoundingClientRect();
+            const newEditorWidth = e.clientX - containerRect.left;
+            const containerWidth = containerRect.width;
+
+            // Set constraints (20% to 80%)
+            const minWidth = containerWidth * 0.2;
+            const maxWidth = containerWidth * 0.8;
+
+            if (newEditorWidth >= minWidth && newEditorWidth <= maxWidth) {
+                const editorPercent = (newEditorWidth / containerWidth) * 100;
+                const previewPercent = 100 - editorPercent;
+
+                editorMain.style.flex = `0 0 ${editorPercent}%`;
+                previewArea.style.flex = `0 0 ${previewPercent}%`;
+
+                // Save to localStorage
+                localStorage.setItem('wiki_editor_width', editorPercent);
+            }
+        });
+
+        document.addEventListener('mouseup', () => {
+            if (isResizing) {
+                isResizing = false;
+                resizer.classList.remove('active');
+                document.body.style.cursor = '';
+                document.body.style.userSelect = '';
+            }
+        });
+
+        // Restore saved width
+        const savedEditorWidth = localStorage.getItem('wiki_editor_width');
+        if (savedEditorWidth) {
+            const editorPercent = parseFloat(savedEditorWidth);
+            const previewPercent = 100 - editorPercent;
+            editorMain.style.flex = `0 0 ${editorPercent}%`;
+            previewArea.style.flex = `0 0 ${previewPercent}%`;
+        }
+
+        // Sidebar Logic
+        function toggleSidebar() {
+            const sidebar = document.getElementById('wikiSidebar');
+            sidebar.classList.toggle('hidden');
+        }
+
+        function renderSidebar(filterText = '') {
+            const list = document.getElementById('sidebarList');
+            if (!list) return;
+            list.innerHTML = '';
+
+            // Helper to create a file item
+            const createFileItem = (entry) => {
+                const item = document.createElement('div');
+                item.className = 'sidebar-item ' + (editingId === entry.id ? 'active' : '');
+                item.style.paddingLeft = '20px'; // Indent files
+                item.style.display = 'flex';
+                item.style.alignItems = 'center';
+                item.style.gap = '4px';
+
+                // Link insert button
+                const linkBtn = document.createElement('button');
+                linkBtn.className = 'link-insert-btn';
+                linkBtn.innerHTML = '🔗';
+                linkBtn.title = `[[${entry.title}]] を挿入`;
+                linkBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    const textarea = document.getElementById('wikiContent');
+                    if (textarea) {
+                        const linkText = `[[${entry.title}]]`;
+                        const start = textarea.selectionStart;
+                        const end = textarea.selectionEnd;
+                        const text = textarea.value;
+                        textarea.value = text.substring(0, start) + linkText + text.substring(end);
+                        textarea.focus();
+                        textarea.setSelectionRange(start + linkText.length, start + linkText.length);
+                        updatePreview();
+                        // Visual feedback
+                        linkBtn.innerHTML = '✓';
+                        setTimeout(() => linkBtn.innerHTML = '🔗', 1000);
+                    }
+                };
+                item.appendChild(linkBtn);
+
+                // Content wrapper
+                const contentWrapper = document.createElement('div');
+                contentWrapper.style.flex = '1';
+                contentWrapper.style.overflow = 'hidden';
+                contentWrapper.onclick = (e) => {
+                    e.stopPropagation();
+                    if (editingId !== entry.id) {
+                        openModal(entry.id);
+                        if (window.innerWidth <= 768) toggleSidebar();
+                    }
+                };
+                // Split date
+                const dateStr = entry.updated.split(' ')[0] || entry.updated;
+                contentWrapper.innerHTML = `<span class="title">${entry.title}</span><span class="date">${dateStr}</span>`;
+                item.appendChild(contentWrapper);
+
+                return item;
+            };
+
+            // 1. Filter Mode (Full-text search including content)
+            if (filterText) {
+                const query = filterText.toLowerCase();
+                const sorted = [...entries].sort((a, b) => new Date(b.updated) - new Date(a.updated));
+                sorted.forEach(entry => {
+                    const text = (entry.title + (entry.category || '') + entry.tags.join(' ') + entry.content).toLowerCase();
+                    if (text.includes(query)) {
+                        list.appendChild(createFileItem(entry));
+                    }
+                });
+                return;
+            }
+
+            // 2. Tree Mode
+            const root = { __folders: {}, __files: [] };
+
+            // Build Tree
+            entries.forEach(entry => {
+                const cat = entry.category ? entry.category.trim() : '';
+                if (!cat) {
+                    root.__files.push(entry);
+                } else {
+                    const parts = cat.split('/').map(s => s.trim()).filter(s => s);
+                    let current = root;
+                    parts.forEach(part => {
+                        if (!current.__folders[part]) {
+                            current.__folders[part] = { __folders: {}, __files: [] };
+                        }
+                        current = current.__folders[part];
+                    });
+                    current.__files.push(entry);
+                }
+            });
+
+            // Recursively render tree
+            const renderLevel = (node, container, parentPath = '') => {
+                // Render Folders
+                Object.keys(node.__folders).sort().forEach(folderName => {
+                    const details = document.createElement('details');
+                    details.className = 'tree-folder';
+                    details.open = true; // Default open
+
+                    const fullPath = parentPath ? `${parentPath}/${folderName}` : folderName;
+
+                    const summary = document.createElement('summary');
+
+                    const folderNameSpan = document.createElement('span');
+                    folderNameSpan.textContent = folderName;
+                    summary.appendChild(folderNameSpan);
+
+                    // Add folder insert button
+                    const insertBtn = document.createElement('button');
+                    insertBtn.className = 'folder-insert-btn';
+                    insertBtn.textContent = '📁';
+                    insertBtn.title = `「${fullPath}」をフォルダ欄に挿入`;
+                    insertBtn.onclick = (e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        document.getElementById('wikiCategory').value = fullPath;
+                        // Visual feedback
+                        insertBtn.textContent = '✓';
+                        setTimeout(() => insertBtn.textContent = '📁', 1000);
+                    };
+                    summary.appendChild(insertBtn);
+
+                    details.appendChild(summary);
+
+                    const subContainer = document.createElement('div');
+                    subContainer.className = 'tree-sub-level';
+                    renderLevel(node.__folders[folderName], subContainer, fullPath);
+
+                    details.appendChild(subContainer);
+                    container.appendChild(details);
+                });
+
+                // Render Files
+                node.__files.sort((a, b) => new Date(b.updated) - new Date(a.updated)).forEach(entry => {
+                    container.appendChild(createFileItem(entry));
+                });
+            };
+
+            renderLevel(root, list, '');
+        }
+
+        function toggleMaximize() {
+            document.getElementById('modalContent').classList.toggle('maximized');
+        }
+
+        function scrollToTop() {
+            document.querySelector('.preview-area').scrollTop = 0;
+        }
+
+        init();
+    </script>
+
+</body>
+
+</html>
