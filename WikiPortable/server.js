@@ -101,15 +101,21 @@ app.get('/api/data', (req, res) => {
 app.post('/api/data', (req, res) => {
     try {
         const data = req.body;
+
+        // 安全性チェック: 配列であることを確認
+        if (!Array.isArray(data)) {
+            console.error('❌ 保存拒否: 受け取ったデータが配列ではありません:', typeof data);
+            return res.status(400).json({ error: '無効なデータ形式です。配列が必要です。' });
+        }
+
         const newDataStr = JSON.stringify(data, null, 2);
 
         // 現在のデータをバックアップ
         if (fs.existsSync(DATA_FILE)) {
             const currentDataStr = fs.readFileSync(DATA_FILE, 'utf-8');
 
-            // 変更がない場合はバックアップせずに終了（タイムスタンプ更新だけするなら上書きするが、今回はスキップ）
+            // 変更がない場合はバックアップせずに終了
             if (currentDataStr === newDataStr) {
-                // console.log('変更がないため保存をスキップしました');
                 return res.json({ success: true, message: '変更なし' });
             }
 

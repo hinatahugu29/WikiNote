@@ -55,6 +55,12 @@
 
     // 新しいsaveToStorage関数（サーバーに保存）
     window.saveToStorage = async function () {
+        // 安全性チェック: entriesが配列であることを確認
+        if (!Array.isArray(window.entries)) {
+            console.error('❌ saveToStorage: entries が配列ではありません。保存を中止します。', window.entries);
+            return;
+        }
+
         try {
             const response = await fetch(`${API_BASE}/data`, {
                 method: 'POST',
