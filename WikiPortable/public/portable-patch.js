@@ -32,7 +32,16 @@
             if (saved) {
                 window.entries = JSON.parse(saved);
             } else {
-                window.entries = [];
+                // 初期データを設定（初回起動時）
+                window.entries = [{
+                    id: Date.now(),
+                    title: "Wikiへようこそ",
+                    category: "はじめに",
+                    tags: ["マニュアル"],
+                    content: "# Wikiへようこそ\n\nこれは初期記事です。「＋ 新規作成」ボタンから新しい記事を作成できます。\n\n## 使い方\n\n1. 記事を作成・編集\n2. 保存ボタンで自動保存\n3. バックアップ管理から復元可能",
+                    updated: new Date().toLocaleString('ja-JP')
+                }];
+                console.log('📝 初期データを作成しました');
             }
         }
 

@@ -194,8 +194,6 @@ app.post('/api/backups', (req, res) => {
 
         fs.copyFileSync(DATA_FILE, backupFile);
 
-        fs.copyFileSync(DATA_FILE, backupFile);
-
         // ローテーション管理
         cleanupOldBackups();
 
@@ -228,6 +226,7 @@ app.post('/api/merge/:filename', (req, res) => {
 
         // 既存のIDを取得
         const existingIds = new Set(currentData.map(item => item.id));
+        const existingTitles = new Set(currentData.map(item => item.title));
 
         // マージ処理（ID衝突を解決）
         const mergedData = [...currentData];
@@ -244,17 +243,20 @@ app.post('/api/merge/:filename', (req, res) => {
                 existingIds.add(newId);
             }
 
-            // タイトルの重複チェック（オプション）
-            const titleExists = currentData.some(existing => existing.title === item.title);
-            if (titleExists) {
+            // タイトルの重複チェック
+            if (existingTitles.has(item.title)) {
                 item.title = `${item.title} (インポート)`;
             }
+            existingTitles.add(item.title);
 
             mergedData.push(item);
             addedCount++;
         });
 
+        // マージ結果を直接保存（即座に反映）
+        fs.writeFileSync(DATA_FILE, JSON.stringify(mergedData, null, 2), 'utf-8');
         console.log(`📦 マージ完了: ${addedCount}件の記事を追加`);
+
         res.json({
             success: true,
             merged: mergedData,
