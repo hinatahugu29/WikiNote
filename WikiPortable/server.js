@@ -161,6 +161,29 @@ app.post('/api/restore/:filename', (req, res) => {
     }
 });
 
+// 手動バックアップ作成API
+app.post('/api/backups', (req, res) => {
+    try {
+        if (!fs.existsSync(DATA_FILE)) {
+            return res.status(404).json({ error: 'データファイルが存在しません' });
+        }
+
+        const timestamp = getTimestamp();
+        const backupFile = path.join(BACKUP_DIR, `manual_${timestamp}.json`);
+
+        fs.copyFileSync(DATA_FILE, backupFile);
+
+        // ローテーション管理（手動も含むか、手動は別枠にするか。一旦含める）
+        manageBackups();
+
+        console.log(`📸 手動バックアップ作成: ${backupFile}`);
+        res.json({ success: true, filename: path.basename(backupFile) });
+    } catch (error) {
+        console.error('手動バックアップエラー:', error);
+        res.status(500).json({ error: 'バックアップ作成に失敗しました' });
+    }
+});
+
 // バックアップをマージ（追加）API
 app.post('/api/merge/:filename', (req, res) => {
     try {

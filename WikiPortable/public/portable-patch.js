@@ -108,16 +108,25 @@
                 color: #333;
             `;
 
-            let html = '<h2 style="margin-bottom:20px;">📦 バックアップ管理</h2>';
+            let html = '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">';
+            html += '<h2 style="margin:0;">📦 バックアップ管理</h2>';
+            html += '<button onclick="createManualBackup()" style="background:#2c3e50; color:white; border:none; padding:8px 15px; border-radius:5px; cursor:pointer; font-size:14px; display:flex; align-items:center; gap:5px;">📸 今すぐバックアップ</button>';
+            html += '</div>';
+
             html += '<p style="color:#666; margin-bottom:20px;">バックアップを選択して復元または追加できます</p>';
             html += '<div style="display:flex; flex-direction:column; gap:10px;">';
 
             backups.forEach((backup, i) => {
                 const sizeKB = (backup.size / 1024).toFixed(2);
+                const isManual = backup.filename.startsWith('manual_');
+                const label = isManual ? '<span style="background:#34495e; color:white; padding:2px 6px; border-radius:4px; font-size:10px; margin-left:5px;">手動</span>' : '';
+
                 html += `
                     <div style="border:1px solid #ddd; padding:15px; border-radius:8px; display:flex; justify-content:space-between; align-items:center;">
                         <div>
-                            <div style="font-weight:600; margin-bottom:5px;">${backup.createdLocal}</div>
+                            <div style="font-weight:600; margin-bottom:5px; display:flex; align-items:center;">
+                                ${backup.createdLocal} ${label}
+                            </div>
                             <div style="font-size:12px; color:#666;">${sizeKB} KB</div>
                         </div>
                         <div style="display:flex; gap:8px;">
@@ -220,11 +229,10 @@
         }
     };
 
+
     // バックアップ削除
     window.deleteBackup = async function (filename) {
-        if (!confirm(`バックアップ「${filename}」を削除しますか？`)) {
-            return;
-        }
+        if (!confirm('本当に削除しますか？')) return;
 
         try {
             const response = await fetch(`${API_BASE}/backups/${filename}`, {
@@ -233,13 +241,37 @@
 
             if (!response.ok) throw new Error('削除に失敗');
 
-            // バックアップマネージャーを再表示
-            document.querySelector('.backup-modal')?.remove();
-            window.showBackupManager();
+            // モーダルを閉じて再表示（リスト更新）
+            const modal = document.querySelector('.backup-modal');
+            if (modal) modal.remove();
+            showBackupManager();
 
         } catch (error) {
             console.error('削除エラー:', error);
             alert('削除に失敗しました');
+        }
+    };
+
+    // 手動バックアップ作成
+    window.createManualBackup = async function () {
+        try {
+            const response = await fetch(`${API_BASE}/backups`, {
+                method: 'POST'
+            });
+
+            if (!response.ok) throw new Error('作成に失敗');
+
+            // モーダルを閉じて再表示（リスト更新）
+            const modal = document.querySelector('.backup-modal');
+            if (modal) modal.remove();
+            showBackupManager();
+
+            // 完了メッセージ（邪魔にならないようにToast風でもいいが、とりあえずalertなしで更新だけでわかるか、軽く通知）
+            // alert('バックアップを作成しました'); // うざいのでリスト更新だけで十分かも
+
+        } catch (error) {
+            console.error('手動バックアップエラー:', error);
+            alert('バックアップ作成に失敗しました');
         }
     };
 
