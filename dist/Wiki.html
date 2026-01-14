@@ -5,6 +5,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Wiki Editor</title>
+    <link rel="icon"
+        href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📘</text></svg>">
     <!-- Libraries for Markdown, Syntax Highlighting, and Math -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <link rel="stylesheet"
@@ -3072,9 +3074,12 @@
             }
         });
 
-        // Scroll Synchronization
+        // Scroll Synchronization (Section-based / Anchor Sync)
         let isSyncScroll = false;
         let currentScrollMaster = null;
+        // Use a timeout to prevent echoing scroll events loops
+        let scrollTimeout = null;
+
         const editorArea = document.getElementById('wikiContent');
 
         // Initialize Sync Scroll Setting
@@ -3090,6 +3095,7 @@
             if (isSyncScroll) {
                 btn.style.color = 'var(--accent)';
                 btn.title = 'スクロール同期 (ON)';
+                // Sync immediately
                 syncScrollFrom(editorArea, previewArea);
             } else {
                 btn.style.color = '#ccc';
@@ -3098,27 +3104,164 @@
             localStorage.setItem('wiki_sync_scroll', isSyncScroll);
         }
 
-        editorArea.addEventListener('mouseover', () => { currentScrollMaster = 'editor'; });
-        previewArea.addEventListener('mouseover', () => { currentScrollMaster = 'preview'; });
+        function getScrollAnchors(markdown) {
+            const lines = markdown.split('\n');
+            const anchors = [];
+
+            // 1. Always add Start anchor
+            anchors.push({ line: 0, tocIndex: -1, type: 'start' });
+
+            // 2. Scan for headers
+            let tocCounter = 0;
+            let isInCodeBlock = false;
+
+            for (let i = 0; i < lines.length; i++) {
+                // Use raw line for code block detection (fences must be at start of line usually, but 1-3 spaces ok)
+                // But simplified: checking trimmed is usually enough for sync purposes.
+                const line = lines[i].trim();
+
+                // Track code blocks to ignore hashes inside them
+                // Handle ``` and ~~~ fences
+                if (line.startsWith('```') || line.startsWith('~~~')) {
+                    isInCodeBlock = !isInCodeBlock;
+                    continue;
+                }
+                if (isInCodeBlock) continue;
+
+                // Check for headers
+                // Supports standard # Header and blockquote > # Header
+                // Regex: Optional blockquote chars (>), Optional spaces, then 1-6 hashes, then space or end of line
+                if (line.match(/^(?:>\s*)*#{1,6}(?:\s|$)/)) {
+                    anchors.push({
+                        line: i,
+                        tocIndex: tocCounter++, // Matches toc-N ID sequence
+                        type: 'header'
+                    });
+                }
+            }
+
+            // 3. Always add End anchor
+            anchors.push({ line: lines.length, tocIndex: -2, type: 'end' });
+            return anchors;
+        }
 
         function syncScrollFrom(source, target) {
-            if (!isSyncScroll || !source || !target) return;
-            const percentage = source.scrollTop / (source.scrollHeight - source.clientHeight);
-            if (!isNaN(percentage)) {
-                target.scrollTop = percentage * (target.scrollHeight - target.clientHeight);
+            if (!isSyncScroll) return;
+
+            // Prevent event loop - Throttle removed for smoothness
+            // if (scrollTimeout) return;
+            // scrollTimeout = setTimeout(() => { scrollTimeout = null; }, 50);
+
+            const isEditorSource = source === editorArea;
+            const markdown = editorArea.value;
+            const anchors = getScrollAnchors(markdown);
+
+            if (isEditorSource) {
+                // Editor -> Preview
+                const lineHeight = parseFloat(window.getComputedStyle(editorArea).lineHeight) || 22; // Fallback
+                const scrollTop = editorArea.scrollTop;
+                // Add a small padding to line calculation
+                const currentLine = scrollTop / lineHeight;
+
+                // Find enclosing anchors
+                let prev = anchors[0];
+                let next = anchors[anchors.length - 1];
+
+                for (let i = 0; i < anchors.length - 1; i++) {
+                    if (currentLine >= anchors[i].line && currentLine < anchors[i + 1].line) {
+                        prev = anchors[i];
+                        next = anchors[i + 1];
+                        break;
+                    }
+                }
+
+                // Calculate percentage between anchors
+                const progress = (currentLine - prev.line) / (next.line - prev.line || 1);
+
+                // Get target Y positions in Preview
+                let prevY = 0;
+                let nextY = previewArea.scrollHeight - previewArea.clientHeight;
+
+                // Resolve DOM elements for prev/next
+                if (prev.type === 'header') {
+                    const el = document.getElementById(`toc-${prev.tocIndex}`);
+                    if (el) prevY = el.offsetTop;
+                }
+                if (next.type === 'header') {
+                    const el = document.getElementById(`toc-${next.tocIndex}`);
+                    if (el) nextY = el.offsetTop;
+                }
+
+                // Interpolate
+                const targetScroll = prevY + (nextY - prevY) * progress;
+                target.scrollTop = targetScroll;
+
+            } else {
+                // Preview -> Editor
+                const scrollTop = previewArea.scrollTop;
+
+                // Find visible headers in Preview
+                // We search for which header section we are currently in
+                let prev = anchors[0];
+                let next = anchors[anchors.length - 1];
+                let prevY = 0;
+                let nextY = previewArea.scrollHeight - previewArea.clientHeight;
+
+                for (let i = 0; i < anchors.length - 1; i++) {
+                    const anchor = anchors[i]; // potential prev
+                    const nextAnchor = anchors[i + 1]; // potential next
+
+                    let y1 = 0;
+                    let y2 = nextY;
+
+                    if (anchor.type === 'header') {
+                        const el = document.getElementById(`toc-${anchor.tocIndex}`);
+                        if (el) y1 = el.offsetTop;
+                    }
+                    if (nextAnchor.type === 'header') {
+                        const el = document.getElementById(`toc-${nextAnchor.tocIndex}`);
+                        if (el) y2 = el.offsetTop;
+                        else if (nextAnchor.type === 'end') y2 = previewArea.scrollHeight - previewArea.clientHeight;
+                    }
+
+                    // Check if current scrollTop is within this range
+                    if (scrollTop >= y1 && scrollTop < y2) {
+                        prev = anchor;
+                        next = nextAnchor;
+                        prevY = y1;
+                        nextY = y2;
+                        break;
+                    }
+                }
+
+                // Calculate Progress
+                const progress = (scrollTop - prevY) / (nextY - prevY || 1);
+
+                // Interpolate Lines in Editor
+                const lineHeight = parseFloat(window.getComputedStyle(editorArea).lineHeight) || 22;
+                const targetLine = prev.line + (next.line - prev.line) * progress;
+
+                target.scrollTop = targetLine * lineHeight;
             }
         }
 
         editorArea.addEventListener('scroll', () => {
-            if (currentScrollMaster === 'editor') {
-                syncScrollFrom(editorArea, previewArea);
-            }
+            if (currentScrollMaster && currentScrollMaster !== 'editor') return; // Strict Lock
+            currentScrollMaster = 'editor';
+            syncScrollFrom(editorArea, previewArea);
+
+            // Release lock after a delay if no usage
+            clearTimeout(editorArea.lockTimer);
+            editorArea.lockTimer = setTimeout(() => currentScrollMaster = null, 200);
         });
 
         previewArea.addEventListener('scroll', () => {
-            if (currentScrollMaster === 'preview') {
-                syncScrollFrom(previewArea, editorArea);
-            }
+            if (currentScrollMaster && currentScrollMaster !== 'preview') return; // Strict Lock
+            currentScrollMaster = 'preview';
+            syncScrollFrom(previewArea, editorArea);
+
+            clearTimeout(previewArea.lockTimer);
+            previewArea.lockTimer = setTimeout(() => currentScrollMaster = null, 200);
         });
 
         // Graph Fade-out Logic overrides
