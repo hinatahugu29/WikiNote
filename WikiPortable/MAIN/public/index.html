@@ -24,6 +24,7 @@
             --glass: rgba(255, 255, 255, 0.2);
             --border-color: #e1e4e8;
             --bg-body: #f6f8fa;
+            --sidebar-width: 250px;
         }
 
         body.dark-mode {
@@ -532,26 +533,36 @@
             height: 100%;
         }
 
-        .graph-close-btn {
+        .graph-controls {
             position: absolute;
             top: 20px;
             right: 30px;
+            z-index: 1600;
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            opacity: 1;
+            transition: opacity 0.5s ease;
+        }
+
+        .graph-controls.fade-out {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .graph-close-btn {
             background: var(--accent);
             color: white;
             border: none;
             padding: 10px 20px;
             border-radius: 50px;
             cursor: pointer;
-            z-index: 1600;
             box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
             font-weight: bold;
         }
 
         /* Graph Settings */
         .graph-settings-btn {
-            position: absolute;
-            top: 20px;
-            right: 120px;
             background: rgba(255, 255, 255, 0.9);
             color: #333;
             border: none;
@@ -559,22 +570,12 @@
             height: 44px;
             border-radius: 50%;
             cursor: pointer;
-            z-index: 1600;
             box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
             font-size: 20px;
             transition: all 0.3s;
         }
 
-        .graph-settings-btn:hover {
-            transform: rotate(45deg) scale(1.1);
-            background: white;
-        }
-
-        body.dark-mode .graph-settings-btn {
-            background: rgba(45, 52, 54, 0.9);
-            color: #dfe6e9;
-        }
-
+        /* Graph Settings Panel */
         .graph-settings-panel {
             display: none;
             position: absolute;
@@ -816,8 +817,41 @@
         }
 
         .resizer:hover,
-        .resizer.active {
+        .resizer.active,
+        .sidebar-resizer:hover,
+        .sidebar-resizer.active {
             background: rgba(52, 152, 219, 0.05);
+        }
+
+        .sidebar-resizer {
+            width: 8px;
+            background: transparent;
+            cursor: col-resize;
+            position: relative;
+            flex-shrink: 0;
+            transition: background 0.2s;
+            margin-left: -4px;
+            /* Center over border */
+            z-index: 10;
+        }
+
+        .sidebar-resizer::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 2px;
+            height: 100%;
+            background: transparent;
+            /* Invisible by default */
+            transition: all 0.2s;
+        }
+
+        .sidebar-resizer:hover::before,
+        .sidebar-resizer.active::before {
+            width: 4px;
+            background: var(--accent);
         }
 
         /* Hide resizer when not in split mode */
@@ -1081,7 +1115,7 @@
         }
 
         .sidebar {
-            width: 250px;
+            width: var(--sidebar-width);
             background: #f8f9fa;
             border-right: 1px solid #ddd;
             display: flex;
@@ -1092,7 +1126,11 @@
         }
 
         .sidebar.hidden {
-            margin-left: -250px;
+            margin-left: calc(var(--sidebar-width) * -1);
+        }
+
+        .sidebar.hidden+.sidebar-resizer {
+            display: none;
         }
 
         .sidebar-header {
@@ -1205,6 +1243,12 @@
                 bottom: 0;
                 left: 0;
                 box-shadow: 2px 0 10px rgba(0, 0, 0, 0.2);
+                width: 250px !important;
+                /* Force fixed width on mobile */
+            }
+
+            .sidebar-resizer {
+                display: none;
             }
 
             /* When hidden on mobile, just move it off screen */
@@ -1496,6 +1540,9 @@
                     <button class="view-btn active" onclick="setViewMode('split')" id="btnViewSplit">分割</button>
                     <button class="view-btn" onclick="setViewMode('preview')" id="btnViewPreview">プレビュー</button>
                 </div>
+                <button class="btn" id="btnSyncScroll"
+                    style="background:transparent; color:#ccc; font-size:18px; padding:0 10px;"
+                    onclick="toggleSyncScroll()" title="スクロール同期 (OFF)">🔗</button>
                 <button class="btn" style="background:transparent; color:#666; font-size:18px; padding:0 10px;"
                     onclick="toggleMaximize()" title="最大化/元に戻す">⛶</button>
                 <button class="btn" style="background:transparent; color:#666; font-size:24px; padding:0 10px;"
@@ -1512,6 +1559,7 @@
                         <!-- Items injected by JS -->
                     </div>
                 </div>
+                <div class="sidebar-resizer" id="sidebarResizer"></div>
 
                 <div class="right-panel">
                     <div class="preview-float-controls">
@@ -1549,7 +1597,8 @@
                                 <input type="text" id="wikiTags" class="tag-input" placeholder="事務, 手順など">
                                 <span class="field-label">タグ</span>
                             </div>
-                            <textarea id="wikiContent" placeholder="内容を書く..." oninput="updatePreview()"></textarea>
+                            <textarea id="wikiContent" placeholder="内容を書く..." oninput="updatePreview()"
+                                spellcheck="false"></textarea>
                         </div>
                         <div class="resizer" id="resizer"></div>
                         <div class="preview-area">
@@ -1561,7 +1610,7 @@
                                 <button class="action-icon-btn" onclick="closeModal()" title="ホーム一覧へ">🏠</button>
                             </div>
                             <div class="preview-content-wrapper">
-                                <div class="preview-content" id="previewContent"></div>
+                                <div class="preview-content" id="previewContent" spellcheck="false"></div>
                             </div>
                             <div class="toc" id="tocArea">
                                 <h4>On this page</h4>
@@ -1594,8 +1643,10 @@
 
     <!-- Graph Modal -->
     <div id="graphModal">
-        <button class="graph-settings-btn" onclick="toggleGraphSettings()" title="グラフ設定">⚙️</button>
-        <button class="graph-close-btn" onclick="closeGraph()">閉じる</button>
+        <div class="graph-controls" id="graphControls">
+            <button class="graph-settings-btn" onclick="toggleGraphSettings()" title="グラフ設定">⚙️</button>
+            <button class="graph-close-btn" onclick="closeGraph()">閉じる</button>
+        </div>
 
         <div id="graphSettingsPanel" class="graph-settings-panel">
             <h3>⚙️ グラフ設定</h3>
@@ -1678,6 +1729,7 @@
         <div id="graphContainer"></div>
     </div>
 
+
     <!-- Add Turndown Service for HTML->Markdown -->
     <script src="https://unpkg.com/turndown/dist/turndown.js"></script>
 
@@ -1697,20 +1749,8 @@
                     codeBlockStyle: 'fenced',
                     emDelimiter: '*'
                 });
-
-                // Rule: Remove permalinks (anchors with 'headerlink' class or specific text)
-                turndownService.addRule('remove-permalinks', {
-                    filter: function (node, options) {
-                        return (
-                            (node.nodeName === 'A' && node.classList.contains('headerlink')) ||
-                            (node.nodeName === 'A' && (node.textContent === '¶' || node.textContent === '#'))
-                        );
-                    },
-                    replacement: function (content) {
-                        return '';
-                    }
-                });
-
+                // Configure tables if needed (requires plugin, skipping for now as per "possible range")
+                // Basic table support might be missing in core Turndown but H1-># works.
             }
 
             const textarea = document.getElementById('wikiContent');
@@ -1738,6 +1778,7 @@
             // Enable editing in preview
             preview.contentEditable = true;
             preview.style.outline = 'none'; // Visual cleanup
+            preview.spellcheck = false; // Disable red wavy lines
 
             // Debounce function to avoid heavy processing
             const debounce = (func, wait) => {
@@ -1759,20 +1800,29 @@
             }, 800);
 
             preview.addEventListener('input', () => {
+                // Creating a visual indicator that we are in "Reverse Sync" mode could be nice
                 syncToMarkdown();
             });
 
             // FIX: Allow opening links in contentEditable mode
             preview.addEventListener('click', (e) => {
                 if (e.target.tagName === 'A' && e.target.href) {
+                    // Check if it is an internal wiki link (different handling)
                     if (e.target.classList.contains('wiki-link-internal')) return;
+
+                    // For external links:
+                    // If Ctrl (or Cmd) is pressed, or if we decide to allow direct click (might annoy editing)
+                    // Let's allow Ctrl+Click to open, otherwise it just places cursor.
                     if (e.ctrlKey || e.metaKey) {
                         window.open(e.target.href, '_blank');
+                    } else {
+                        // Optional: Show tooltip "Ctrl+Click to open"?
+                        console.log("Ctrl+Click to open link in edit mode");
                     }
                 }
             });
         });
-
+        // ---------------------------------------------
 
         const STORAGE_KEY = 'personal_wiki_data';
         const GRAPH_SETTINGS_KEY = 'wiki_graph_settings';
@@ -2055,6 +2105,12 @@
 
         function setViewMode(mode) {
             const content = document.getElementById('modalContent');
+
+            // Auto-maximize when returning from preview to split/editor for better UX
+            if (content.classList.contains('mode-preview') && mode !== 'preview') {
+                content.classList.add('maximized');
+            }
+
             content.classList.remove('mode-editor', 'mode-split', 'mode-preview');
             content.classList.add('mode-' + mode);
             document.querySelectorAll('.view-btn').forEach(btn => btn.classList.toggle('active', btn.id === 'btnView' + mode.charAt(0).toUpperCase() + mode.slice(1)));
@@ -2104,6 +2160,9 @@
         }
 
         function openModal(id = null) {
+            // Check if modal is already open
+            const isActive = document.getElementById('wikiModal').classList.contains('active');
+
             if (id) {
                 editingId = id;
                 const entry = entries.find(e => e.id === id);
@@ -2112,7 +2171,12 @@
                 document.getElementById('wikiTags').value = entry.tags.join(', ');
                 document.getElementById('wikiContent').value = entry.content;
                 document.getElementById('btnDelete').style.display = 'block';
-                setViewMode('preview');
+
+                // Only force preview if opening from outside (grid view)
+                // If already active (e.g. sidebar navigation), keep current mode
+                if (!isActive) {
+                    setViewMode('preview');
+                }
             } else {
                 editingId = null;
                 document.getElementById('wikiTitle').value = '';
@@ -2125,6 +2189,10 @@
             document.getElementById('wikiModal').classList.add('active');
             renderSidebar();
             updatePreview();
+
+            // Reset scroll positions when opening/switching articles
+            document.querySelector('.preview-area').scrollTop = 0;
+            document.getElementById('wikiContent').scrollTop = 0;
         }
 
         function closeModal() { document.getElementById('wikiModal').classList.remove('active'); }
@@ -2272,7 +2340,8 @@
                 li.className = 'toc-h' + item.level;
                 // create clean text for display
                 const cleanText = item.text.replace(/<[^>]*>?/gm, '');
-                li.innerHTML = `<a href="#${item.id}" onclick="document.getElementById('${item.id}').scrollIntoView({behavior: 'smooth'}); return false;">${cleanText}</a>`;
+                // Use javascript:void(0) to prevent any hash navigation fallback
+                li.innerHTML = `<a href="javascript:void(0)" onclick="scrollToToc(event, '${item.id}')">${cleanText}</a>`;
                 tocList.appendChild(li);
             });
 
@@ -2581,6 +2650,48 @@
                 }
             });
 
+            // Auto-hide Controls Logic
+            const controls = document.getElementById('graphControls');
+            let hideTimeout;
+
+            function showControls() {
+                controls.classList.remove('fade-out');
+                clearTimeout(hideTimeout);
+                hideTimeout = setTimeout(() => {
+                    // Only hide if settings panel is NOT open
+                    if (!document.getElementById('graphSettingsPanel').classList.contains('active')) {
+                        controls.classList.add('fade-out');
+                    }
+                }, 3000); // Hide after 3 seconds
+            }
+
+            // Initial trigger
+            showControls();
+
+            // Setup triggers
+            document.addEventListener('mousemove', (e) => {
+                // Determine if mouse is in top-right area (e.g., top 20% and right 20%)
+                const isTopRight = e.clientX > window.innerWidth * 0.7 && e.clientY < window.innerHeight * 0.3;
+
+                if (isTopRight || document.getElementById('graphModal').style.display === 'flex') {
+                    // Check specifically if hovering NEAR controls or just moving anywhere?
+                    // Request was: "appear when cursor is moved to top right"
+                    // Ideally, any movement wakes it up, but "moved to top right" suggests specific area.
+                    // Let's make it wake up on ANY movement first (standard UI), or strictly top right?
+                    // Standard "Hide UI" usually wakes on any movement, but let's try the "Area" approach for "Playfulness"
+                    // Actually, user said "Right top cursor moved -> appear".
+                    // So we check coordinates.
+                    if (isTopRight) {
+                        showControls();
+                    }
+                }
+            });
+
+            // Also show on touch/click 
+            modal.onclick = showControls;
+
+            // ... Auto tour code continues ...
+
             // Auto-tour: Focus on random nodes periodically
             let autoTourInterval = null;
             let userInteractionTimeout = null;
@@ -2851,6 +2962,105 @@
             previewArea.style.flex = `0 0 ${previewPercent}%`;
         }
 
+        // Sidebar Resizing Logic
+        const sidebarResizer = document.getElementById('sidebarResizer');
+        const sidebar = document.getElementById('wikiSidebar');
+        let isSidebarResizing = false;
+
+        // Initialize from storage or default
+        const savedSidebarWidth = localStorage.getItem('wiki_sidebar_width');
+        if (savedSidebarWidth) {
+            document.documentElement.style.setProperty('--sidebar-width', savedSidebarWidth + 'px');
+        }
+
+        sidebarResizer.addEventListener('mousedown', (e) => {
+            isSidebarResizing = true;
+            sidebarResizer.classList.add('active');
+            document.body.style.cursor = 'col-resize';
+            document.body.style.userSelect = 'none';
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (!isSidebarResizing) return;
+
+            const container = document.querySelector('.main-wrapper');
+            const containerRect = container.getBoundingClientRect();
+            // Sidebar is on the left, so width is just mouse X - container left
+            const newWidth = e.clientX - containerRect.left;
+
+            // Constraints (150px to 50% of screen)
+            const minWidth = 150;
+            const maxWidth = Math.min(600, window.innerWidth * 0.5);
+
+            if (newWidth >= minWidth && newWidth <= maxWidth) {
+                document.documentElement.style.setProperty('--sidebar-width', newWidth + 'px');
+                localStorage.setItem('wiki_sidebar_width', newWidth);
+            }
+        });
+
+        document.addEventListener('mouseup', () => {
+            if (isSidebarResizing) {
+                isSidebarResizing = false;
+                sidebarResizer.classList.remove('active');
+                document.body.style.cursor = '';
+                document.body.style.userSelect = '';
+            }
+        });
+
+        // Scroll Synchronization
+        let isSyncScroll = false;
+        let currentScrollMaster = null; // 'editor' or 'preview'
+        const editorArea = document.getElementById('wikiContent');
+
+        // Initialize Sync Scroll Setting
+        if (localStorage.getItem('wiki_sync_scroll') === 'true') {
+            isSyncScroll = true;
+            document.getElementById('btnSyncScroll').style.color = 'var(--accent)';
+            document.getElementById('btnSyncScroll').title = 'スクロール同期 (ON)';
+        }
+
+        function toggleSyncScroll() {
+            isSyncScroll = !isSyncScroll;
+            const btn = document.getElementById('btnSyncScroll');
+            if (isSyncScroll) {
+                btn.style.color = 'var(--accent)';
+                btn.title = 'スクロール同期 (ON)';
+                // Sync immediately
+                syncScrollFrom(editorArea, previewArea);
+            } else {
+                btn.style.color = '#ccc';
+                btn.title = 'スクロール同期 (OFF)';
+            }
+            localStorage.setItem('wiki_sync_scroll', isSyncScroll);
+        }
+
+        // Detect active area for scrolling
+        editorArea.addEventListener('mouseover', () => { currentScrollMaster = 'editor'; });
+        previewArea.addEventListener('mouseover', () => { currentScrollMaster = 'preview'; });
+
+        // Scroll Handlers
+        function syncScrollFrom(source, target) {
+            if (!isSyncScroll || !source || !target) return;
+            // Simple percentage-based scrolling
+            const percentage = source.scrollTop / (source.scrollHeight - source.clientHeight);
+            // Check if NaN (if content is short)
+            if (!isNaN(percentage)) {
+                target.scrollTop = percentage * (target.scrollHeight - target.clientHeight);
+            }
+        }
+
+        editorArea.addEventListener('scroll', () => {
+            if (currentScrollMaster === 'editor') {
+                syncScrollFrom(editorArea, previewArea);
+            }
+        });
+
+        previewArea.addEventListener('scroll', () => {
+            if (currentScrollMaster === 'preview') {
+                syncScrollFrom(previewArea, editorArea);
+            }
+        });
+
         // Sidebar Logic
         function toggleSidebar() {
             const sidebar = document.getElementById('wikiSidebar');
@@ -3018,6 +3228,30 @@
 
         function scrollToTop() {
             document.querySelector('.preview-area').scrollTop = 0;
+        }
+
+        function scrollToToc(event, id) {
+            event.preventDefault();
+            event.stopPropagation();
+
+            // Set master to preview to ensure sync logic (if active) follows this scroll
+            currentScrollMaster = 'preview';
+
+            const element = document.getElementById(id);
+            const container = document.querySelector('.preview-area');
+
+            if (element && container) {
+                // Manually calculate relative position to ensure only the container scrolls
+                // scrollIntoView can sometimes trigger parent/body scrolling unwantedly
+                const containerRect = container.getBoundingClientRect();
+                const elementRect = element.getBoundingClientRect();
+                const relativeTop = elementRect.top - containerRect.top;
+
+                container.scrollTo({
+                    top: container.scrollTop + relativeTop - 20, // 20px buffer/padding
+                    behavior: 'smooth'
+                });
+            }
         }
 
         init();

@@ -24,6 +24,7 @@
             --glass: rgba(255, 255, 255, 0.2);
             --border-color: #e1e4e8;
             --bg-body: #f6f8fa;
+            --sidebar-width: 250px;
         }
 
         body.dark-mode {
@@ -797,6 +798,22 @@
             transition: background 0.2s;
         }
 
+        #sidebarResizer {
+            width: 5px;
+            background: transparent;
+            cursor: col-resize;
+            transition: background 0.3s;
+            z-index: 100;
+            flex-shrink: 0;
+            margin-left: -2px;
+            /* Overlap border */
+        }
+
+        #sidebarResizer:hover,
+        #sidebarResizer.active {
+            background: var(--accent);
+        }
+
         .resizer::before {
             content: '';
             position: absolute;
@@ -1081,7 +1098,7 @@
         }
 
         .sidebar {
-            width: 250px;
+            width: var(--sidebar-width);
             background: #f8f9fa;
             border-right: 1px solid #ddd;
             display: flex;
@@ -1092,7 +1109,7 @@
         }
 
         .sidebar.hidden {
-            margin-left: -250px;
+            margin-left: calc(var(--sidebar-width) * -1);
         }
 
         .sidebar-header {
@@ -1444,6 +1461,15 @@
             background: #2d3436;
             color: #dfe6e9;
         }
+
+        .graph-controls {
+            transition: opacity 0.5s ease;
+        }
+
+        .graph-controls.fade-out {
+            opacity: 0;
+            pointer-events: none;
+        }
     </style>
     <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
 </head>
@@ -1512,6 +1538,7 @@
                         <!-- Items injected by JS -->
                     </div>
                 </div>
+                <div id="sidebarResizer"></div>
 
                 <div class="right-panel">
                     <div class="preview-float-controls">
@@ -1531,6 +1558,8 @@
                         <button class="toolbar-btn" onclick="insertText('$$ ', ' $$')">数式</button>
                         <button class="toolbar-btn" onclick="insertText('[[', ']]')" title="Wikiリンク">🔗</button>
                         <button class="toolbar-btn" onclick="copyMarkdown()" title="Markdownをコピー">📋</button>
+                        <button class="toolbar-btn" id="btnSyncScroll" onclick="toggleSyncScroll()"
+                            title="スクロール同期 (OFF)" style="color:#ccc">🔄</button>
                     </div>
 
                     <div class="editor-container">
@@ -1594,8 +1623,10 @@
 
     <!-- Graph Modal -->
     <div id="graphModal">
-        <button class="graph-settings-btn" onclick="toggleGraphSettings()" title="グラフ設定">⚙️</button>
-        <button class="graph-close-btn" onclick="closeGraph()">閉じる</button>
+        <div id="graphControls" class="graph-controls">
+            <button class="graph-settings-btn" onclick="toggleGraphSettings()" title="グラフ設定">⚙️</button>
+            <button class="graph-close-btn" onclick="closeGraph()">閉じる</button>
+        </div>
 
         <div id="graphSettingsPanel" class="graph-settings-panel">
             <h3>⚙️ グラフ設定</h3>
@@ -2996,6 +3027,160 @@
         }
 
         init();
+
+        // Sidebar Resizing Logic
+        const sidebarResizer = document.getElementById('sidebarResizer');
+        const sidebar = document.getElementById('wikiSidebar');
+        let isSidebarResizing = false;
+
+        // Initialize from storage or default
+        const savedSidebarWidth = localStorage.getItem('wiki_sidebar_width');
+        if (savedSidebarWidth) {
+            document.documentElement.style.setProperty('--sidebar-width', savedSidebarWidth + 'px');
+        }
+
+        sidebarResizer.addEventListener('mousedown', (e) => {
+            isSidebarResizing = true;
+            sidebarResizer.classList.add('active');
+            document.body.style.cursor = 'col-resize';
+            document.body.style.userSelect = 'none';
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (!isSidebarResizing) return;
+
+            const container = document.querySelector('.main-wrapper');
+            const containerRect = container.getBoundingClientRect();
+            const newWidth = e.clientX - containerRect.left;
+
+            // Constraints
+            const minWidth = 150;
+            const maxWidth = Math.min(600, window.innerWidth * 0.5);
+
+            if (newWidth >= minWidth && newWidth <= maxWidth) {
+                document.documentElement.style.setProperty('--sidebar-width', newWidth + 'px');
+                localStorage.setItem('wiki_sidebar_width', newWidth);
+            }
+        });
+
+        document.addEventListener('mouseup', () => {
+            if (isSidebarResizing) {
+                isSidebarResizing = false;
+                sidebarResizer.classList.remove('active');
+                document.body.style.cursor = '';
+                document.body.style.userSelect = '';
+            }
+        });
+
+        // Scroll Synchronization
+        let isSyncScroll = false;
+        let currentScrollMaster = null;
+        const editorArea = document.getElementById('wikiContent');
+
+        // Initialize Sync Scroll Setting
+        if (localStorage.getItem('wiki_sync_scroll') === 'true') {
+            isSyncScroll = true;
+            document.getElementById('btnSyncScroll').style.color = 'var(--accent)';
+            document.getElementById('btnSyncScroll').title = 'スクロール同期 (ON)';
+        }
+
+        function toggleSyncScroll() {
+            isSyncScroll = !isSyncScroll;
+            const btn = document.getElementById('btnSyncScroll');
+            if (isSyncScroll) {
+                btn.style.color = 'var(--accent)';
+                btn.title = 'スクロール同期 (ON)';
+                syncScrollFrom(editorArea, previewArea);
+            } else {
+                btn.style.color = '#ccc';
+                btn.title = 'スクロール同期 (OFF)';
+            }
+            localStorage.setItem('wiki_sync_scroll', isSyncScroll);
+        }
+
+        editorArea.addEventListener('mouseover', () => { currentScrollMaster = 'editor'; });
+        previewArea.addEventListener('mouseover', () => { currentScrollMaster = 'preview'; });
+
+        function syncScrollFrom(source, target) {
+            if (!isSyncScroll || !source || !target) return;
+            const percentage = source.scrollTop / (source.scrollHeight - source.clientHeight);
+            if (!isNaN(percentage)) {
+                target.scrollTop = percentage * (target.scrollHeight - target.clientHeight);
+            }
+        }
+
+        editorArea.addEventListener('scroll', () => {
+            if (currentScrollMaster === 'editor') {
+                syncScrollFrom(editorArea, previewArea);
+            }
+        });
+
+        previewArea.addEventListener('scroll', () => {
+            if (currentScrollMaster === 'preview') {
+                syncScrollFrom(previewArea, editorArea);
+            }
+        });
+
+        // Graph Fade-out Logic overrides
+        // We need to inject this into showGraph or attach it after.
+        // Since showGraph is defined above, we can append the fade logic here or modify showGraph.
+        // Modification of showGraph is safer but harder with multi-replace.
+        // Let's add an event listener for graph opening or just init it if modal is open.
+
+        // Actually, let's redefine the controls logic or attach it.
+        // The showGraph function was not modified in this chunk, so the fade-out logic needs to be added.
+        // We can hook into the click event on "Graph View" button, but that's hard.
+        // Let's just add the fade-out logic to the existing showGraph function via overwrite?
+        // No, that's too big.
+        // Let's add a global mousemove handler that checks if graph is open.
+
+        document.addEventListener('mousemove', (e) => {
+            const graphModal = document.getElementById('graphModal');
+            if (graphModal.style.display === 'flex') {
+                const controls = document.getElementById('graphControls');
+                if (!controls) return;
+
+                const isTopRight = e.clientX > window.innerWidth * 0.7 && e.clientY < window.innerHeight * 0.3;
+
+                // Show controls on any movement or just top right? Matches Portable logic
+                // But wait, the fade logic depends on a timeout variable.
+                // We can use a property on the controls element to store the timeout ID.
+
+                if (isTopRight || !controls.classList.contains('fade-out')) {
+                    controls.classList.remove('fade-out');
+
+                    if (controls.dataset.hideTimeout) clearTimeout(parseInt(controls.dataset.hideTimeout));
+
+                    const timeoutId = setTimeout(() => {
+                        if (!document.getElementById('graphSettingsPanel').classList.contains('active')) {
+                            controls.classList.add('fade-out');
+                        }
+                    }, 3000);
+
+                    controls.dataset.hideTimeout = timeoutId;
+                }
+            }
+        });
+
+        // Initial trigger for graph controls
+        // We can't easily hook into showGraph without replacing it. 
+        // But the mousemove above will handle it once the user moves the mouse.
+        // To be safe, let's check periodically or observe the modal style.
+
+        const graphObserver = new MutationObserver((mutations) => {
+            mutations.forEach((mutation) => {
+                if (mutation.target.style.display === 'flex') {
+                    // Reset controls visibility when opened
+                    const controls = document.getElementById('graphControls');
+                    if (controls) {
+                        controls.classList.remove('fade-out');
+                    }
+                }
+            });
+        });
+        graphObserver.observe(document.getElementById('graphModal'), { attributes: true, attributeFilter: ['style'] });
+
+
     </script>
 
 </body>

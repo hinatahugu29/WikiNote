@@ -1678,7 +1678,6 @@
         <div id="graphContainer"></div>
     </div>
 
-
     <!-- Add Turndown Service for HTML->Markdown -->
     <script src="https://unpkg.com/turndown/dist/turndown.js"></script>
 
@@ -1698,8 +1697,20 @@
                     codeBlockStyle: 'fenced',
                     emDelimiter: '*'
                 });
-                // Configure tables if needed (requires plugin, skipping for now as per "possible range")
-                // Basic table support might be missing in core Turndown but H1-># works.
+
+                // Rule: Remove permalinks (anchors with 'headerlink' class or specific text)
+                turndownService.addRule('remove-permalinks', {
+                    filter: function (node, options) {
+                        return (
+                            (node.nodeName === 'A' && node.classList.contains('headerlink')) ||
+                            (node.nodeName === 'A' && (node.textContent === '¶' || node.textContent === '#'))
+                        );
+                    },
+                    replacement: function (content) {
+                        return '';
+                    }
+                });
+
             }
 
             const textarea = document.getElementById('wikiContent');
@@ -1748,29 +1759,20 @@
             }, 800);
 
             preview.addEventListener('input', () => {
-                // Creating a visual indicator that we are in "Reverse Sync" mode could be nice
                 syncToMarkdown();
             });
 
             // FIX: Allow opening links in contentEditable mode
             preview.addEventListener('click', (e) => {
                 if (e.target.tagName === 'A' && e.target.href) {
-                    // Check if it is an internal wiki link (different handling)
                     if (e.target.classList.contains('wiki-link-internal')) return;
-
-                    // For external links:
-                    // If Ctrl (or Cmd) is pressed, or if we decide to allow direct click (might annoy editing)
-                    // Let's allow Ctrl+Click to open, otherwise it just places cursor.
                     if (e.ctrlKey || e.metaKey) {
                         window.open(e.target.href, '_blank');
-                    } else {
-                        // Optional: Show tooltip "Ctrl+Click to open"?
-                        console.log("Ctrl+Click to open link in edit mode");
                     }
                 }
             });
         });
-        // ---------------------------------------------
+
 
         const STORAGE_KEY = 'personal_wiki_data';
         const GRAPH_SETTINGS_KEY = 'wiki_graph_settings';
